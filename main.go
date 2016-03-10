@@ -5,6 +5,7 @@ import (
 	"gibberz/crypto"
 	"io"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -16,15 +17,15 @@ func main() {
 		return
 	}
 
-	key, _, err := crypto.ImportKeyAndUser(buf.String())
+	key, user, err := crypto.ImportKeyAndUser(buf.String())
 	if err != nil {
 		panic(err)
 	}
 
-	output, err := key.Encrypt("Hello World!")
+	output, err := key.EncryptMessage("Hello World!", "A message", user)
 	if err != nil {
 		panic(err)
 	}
 
-	io.Copy(os.Stdout, output)
+	io.Copy(os.Stdout, strings.NewReader(output.Text()))
 }

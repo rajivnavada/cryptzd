@@ -23,12 +23,12 @@ var (
 // PUBLIC INTERFACE
 
 type Indexer interface {
-	AddUniqueIndex(collectionName, fieldName string) error
+	AddUniqueIndex(collectionName string, fieldNames ...string) error
 
 	Close()
 }
 
-type Updateable interface {
+type Identifiable interface {
 	ObjectId() bson.ObjectId
 }
 
@@ -39,11 +39,13 @@ type Session interface {
 
 	Close()
 
-	SaveDocument(doc interface{}, collectionName string) error
+	Save(doc interface{}, collectionName string) error
 
-	FindDocument(container interface{}, selector interface{}, collectionName string) error
+	Update(doc Identifiable, collectionName string) error
 
-	UpdateDocument(doc Updateable, collectionName string) error
+	Find(doc interface{}, selector bson.M, collectionName string) error
+
+	FindAll(docs []interface{}, selector bson.M, collectionName string) error
 }
 
 //----------------------------------------
@@ -69,12 +71,12 @@ func (ms *mongoSession) init() error {
 	return nil
 }
 
-func (ms *mongoSession) AddUniqueIndex(collectionName, fieldName string) error {
+func (ms *mongoSession) AddUniqueIndex(collectionName string, fieldNames ...string) error {
 	if err := ms.init(); err != nil {
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).EnsureIndex(mgo.Index{
-		Key:        []string{fieldName},
+		Key:        fieldNames,
 		Unique:     true,
 		DropDups:   true,
 		Background: false,
@@ -82,25 +84,32 @@ func (ms *mongoSession) AddUniqueIndex(collectionName, fieldName string) error {
 	})
 }
 
-func (ms *mongoSession) SaveDocument(doc interface{}, collectionName string) error {
+func (ms *mongoSession) Save(doc interface{}, collectionName string) error {
 	if err := ms.init(); err != nil {
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).Insert(doc)
 }
 
-func (ms *mongoSession) UpdateDocument(doc Updateable, collectionName string) error {
+func (ms *mongoSession) Update(doc Identifiable, collectionName string) error {
 	if err := ms.init(); err != nil {
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).UpdateId(doc.ObjectId(), doc)
 }
 
-func (ms *mongoSession) FindDocument(container interface{}, selector interface{}, collectionName string) error {
+func (ms *mongoSession) Find(container interface{}, selector bson.M, collectionName string) error {
 	if err := ms.init(); err != nil {
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).Find(selector).One(container)
+}
+
+func (ms *mongoSession) FindAll(container []interface{}, selector bson.M, collectionName string) error {
+	if err := ms.init(); err != nil {
+		return err
+	}
+	return ms.DB(ms.dbName).C(collectionName).Find(selector).Limit(len(container)).All(container)
 }
 
 func (ms *mongoSession) HostName() string {
