@@ -1,9 +1,20 @@
-CC_FOR_TARGET = clang
-CXX_FOR_TARGET = clang++
+CC = clang
+BINS = gibberz
 
-all: gibberz
+all: $(BINS)
+
+format:
+	go fmt ./...
+
+test:
+	go test ./...
 
 gibberz:
-	CC_FOR_TARGET=$(CC_FOR_TARGET) CXX_FOR_TARGET=$(CXX_FOR_TARGET) go build -o gibberz gibberz.go
+	CC=$(CC) go build -o $@ main.go
 
+install: $(BINS)
+	go install
+
+clean:
+	rm -f $(BINS)
 
