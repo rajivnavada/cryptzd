@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"gibberz/mongo"
+	"gopkg.in/mgo.v2"
 	"io"
 	"sort"
 	"time"
@@ -17,9 +18,10 @@ const (
 )
 
 var (
-	NotImplementedError = errors.New("Not implemented")
-	InvalidKeyError     = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
-	MissingEmailError   = errors.New("Public key must contain a valid email address.")
+	NotImplementedError   = errors.New("Not implemented")
+	InvalidKeyError       = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
+	MissingEmailError     = errors.New("Public key must contain a valid email address.")
+	FailedEncryptionError = errors.New("Failed to encrypt message.")
 )
 
 //----------------------------------------
@@ -41,7 +43,7 @@ type Key interface {
 
 	ExpiresAt() time.Time
 
-	Encrypt([]byte) ([]byte, error)
+	Encrypt(string) (string, error)
 }
 
 type SaveableKey interface {
@@ -110,8 +112,8 @@ func (bk *baseKey) Save(sess mongo.Session) error {
 	return sess.SaveDocument(bk, KEY_COLLECTION_NAME)
 }
 
-func (bk *baseKey) Encrypt(b []byte) ([]byte, error) {
-	return nil, NotImplementedError
+func (bk *baseKey) Encrypt(msg string) (string, error) {
+	return encryptMessage(msg, bk.Fingerprint)
 }
 
 type key struct {
@@ -193,12 +195,12 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 	defer sess.Close()
 
 	k := &key{bk}
-	if err := k.Save(sess); err != nil {
+	if err := k.Save(sess); err != nil && !mgo.IsDup(err) {
 		return nil, nil, err
 	}
 
 	u := &user{bu}
-	if err := u.Save(sess); err != nil {
+	if err := u.Save(sess); err != nil && !mgo.IsDup(err) {
 		return nil, nil, err
 	}
 

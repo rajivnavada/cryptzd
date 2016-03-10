@@ -7,7 +7,6 @@ package crypto
 // #include "gpgme-bridge.h"
 import "C"
 import (
-	"strings"
 	"time"
 	"unsafe"
 )
@@ -23,7 +22,7 @@ func importPublicKey(s string, bk *baseKey, bu *baseUser) error {
 	defer C.free(unsafe.Pointer(keyData))
 
 	// Now perform the import
-	C.import_key(keyInfo, keyData, C.size_t(len(s)))
+	C.import_key(keyInfo, keyData)
 
 	// Handle key info
 
@@ -54,8 +53,32 @@ func importPublicKey(s string, bk *baseKey, bu *baseUser) error {
 	}
 	bu.Email = email
 
-	bu.Name = strings.TrimSpace(C.GoStringN(&keyInfo.user_name[0], nameLen))
-	bu.Comment = strings.TrimSpace(C.GoStringN(&keyInfo.user_comment[0], commentLen))
+	bu.Name = C.GoStringN(&keyInfo.user_name[0], nameLen)
+	bu.Comment = C.GoStringN(&keyInfo.user_comment[0], commentLen)
 
 	return nil
+}
+
+func encryptMessage(message, fingerprint string) (string, error) {
+	// Get the fingerprint as a C string
+	fpr := C.CString(fingerprint)
+	defer C.free(unsafe.Pointer(fpr))
+
+	// Get message as a C string
+	msg := C.CString(message)
+	defer C.free(unsafe.Pointer(msg))
+
+	// Call into C to encrypt
+	cipher := C.encrypt(fpr, msg)
+	if cipher == nil {
+		return "", FailedEncryptionError
+	}
+	defer C.free_cipher_text(cipher)
+
+	output := C.GoString(cipher)
+	if output == "" {
+		return "", FailedEncryptionError
+	}
+
+	return output, nil
 }

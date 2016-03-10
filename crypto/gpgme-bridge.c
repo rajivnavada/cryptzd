@@ -19,6 +19,38 @@ int init_gpgme ()
 }
 
 
+gpgme_ctx_t get_context ()
+{
+    init_gpgme();
+
+    gpgme_ctx_t ctx = NULL;
+    gpgme_error_t err = gpgme_new (&ctx);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        return NULL;
+
+    return ctx;
+}
+
+
+gpgme_key_t get_key (gpgme_ctx_t ctx, const char *fingerprint)
+{
+    if (!ctx)
+        return NULL;
+
+    gpgme_key_t key = NULL;
+    gpgme_error_t err = gpgme_get_key (ctx, fingerprint, &key, 0);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        return NULL;
+
+    return key;
+}
+
+
+//----------------------------------------
+// PUBLIC API
+//----------------------------------------
+
+
 key_info_t new_key_info ()
 {
     key_info_t info = (key_info_t) malloc (sizeof (struct key_info));
@@ -34,7 +66,7 @@ void free_key_info (key_info_t info)
 }
 
 
-void import_key (key_info_t info, const char *key, size_t key_size)
+void import_key (key_info_t info, const char *key)
 {
     // Variables that MUST be freed before returning
     gpgme_ctx_t ctx = NULL;
@@ -46,17 +78,14 @@ void import_key (key_info_t info, const char *key, size_t key_size)
 
     gpgme_error_t err;
 
-    // First thing to do is INIT
-    init_gpgme ();
-
     // Let's setup a gpgme context
-    err = gpgme_new (&ctx);
-    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+    ctx = get_context ();
+    if (!ctx)
         goto free_resources_and_return;
 
     // Construct a gpgme_data_t instance from passed in key data
     // NOTE: we ask to copy since we don't want to mess up Go's memory manager
-    err = gpgme_data_new_from_mem (&key_data, key, key_size, COPY);
+    err = gpgme_data_new_from_mem (&key_data, key, strlen (key), COPY);
     if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
         goto free_resources_and_return;
 
@@ -95,20 +124,17 @@ void get_key_info (key_info_t info, const char *fingerprint, gpgme_ctx_t ctx)
     if (!fingerprint || !info)
         return;
 
-    gpgme_error_t err;
     int created_ctx = 0;
 
     if (!ctx)
     {
-        init_gpgme ();
-        err = gpgme_new (&ctx);
-        if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        ctx = get_context ();
+        if (!ctx)
             return;
         created_ctx = 1;
     }
 
-    gpgme_key_t key = NULL;
-    err = gpgme_get_key (ctx, fingerprint, &key, 0);
+    gpgme_key_t key = get_key (ctx, fingerprint);
     if (!key || !key->subkeys || !key->uids)
         goto free_resources_and_return;
 
@@ -126,10 +152,80 @@ void get_key_info (key_info_t info, const char *fingerprint, gpgme_ctx_t ctx)
     info->is_new = 0;
 
 free_resources_and_return:
-    if (created_ctx)
+    if (created_ctx && ctx)
     {
         gpgme_release (ctx);
         ctx = NULL;
     }
 }
 
+
+char *encrypt (const char *fingerprint, const char *message)
+{
+    if (!fingerprint || !message)
+        return NULL;
+
+    gpgme_ctx_t ctx = get_context ();
+    if (!ctx)
+        return NULL;
+
+    // Setup return value for goto
+    char *ret = NULL;
+
+    // Variables that need to be freed before exit
+    gpgme_data_t data = NULL;
+    gpgme_data_t cipher = NULL;
+
+    // Make sure we set the context into ASCII armor mode
+    gpgme_set_armor (ctx, 1);
+
+    // Construct a gpgme_data_t instance from data
+    // NOTE: we ask to copy since we don't want to mess up Go's memory manager
+    gpgme_error_t err = gpgme_data_new_from_mem (&data, message, strlen (message), COPY);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Initialize the cipher storage
+    err = gpgme_data_new (&cipher);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Get the key for the recipient
+    gpgme_key_t key = get_key (ctx, fingerprint);
+    if (!key)
+        goto free_resources_and_return;
+
+    gpgme_key_t key_arr[2] = {key, NULL};
+    gpgme_encrypt_flags_t flags = GPGME_ENCRYPT_ALWAYS_TRUST | GPGME_ENCRYPT_NO_ENCRYPT_TO | GPGME_ENCRYPT_NO_COMPRESS;
+
+    // Now we can encrypt
+    err = gpgme_op_encrypt (ctx, key_arr, flags, data, cipher);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Extract the cipher text from cipher object
+    size_t cipher_len = 0;
+    ret = gpgme_data_release_and_get_mem (cipher, &cipher_len);
+    // At this point cipher should already be released and no further release is required
+    cipher = NULL;
+
+free_resources_and_return:
+    if (cipher)
+        gpgme_data_release (cipher);
+    if (data)
+        gpgme_data_release (data);
+    if (ctx)
+        gpgme_release (ctx);
+
+    return ret;
+}
+
+
+void free_cipher_text (char *cipher_text)
+{
+    if (!cipher_text)
+        return;
+
+    gpgme_free (cipher_text);
+    cipher_text = NULL;
+}

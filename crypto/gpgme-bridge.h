@@ -34,9 +34,14 @@ extern "C" {
     void free_key_info (key_info_t info);
 
     // Tries to import KEY into the system keychain
-    void import_key (key_info_t info, const char *key, size_t key_size);
+    void import_key (key_info_t info, const char *key);
 
     void get_key_info (key_info_t info, const char *fingerprint, gpgme_ctx_t ctx);
+
+    // Returns encrypted data that MUST be freed by the caller
+    char *encrypt (const char *fingerprint, const char *message);
+
+    void free_cipher_text (char *cipher_text);
 
 #ifdef __cplusplus
 }
