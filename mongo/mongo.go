@@ -32,9 +32,11 @@ type Session interface {
 
 	DbName() string
 
+	Close()
+
 	SaveDocument(doc interface{}, collectionName string) error
 
-	Close()
+	FindDocument(container interface{}, selector interface{}, collectionName string) error
 }
 
 //----------------------------------------
@@ -78,6 +80,13 @@ func (ms *mongoSession) SaveDocument(doc interface{}, collectionName string) err
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).Insert(doc)
+}
+
+func (ms *mongoSession) FindDocument(container interface{}, selector interface{}, collectionName string) error {
+	if err := ms.init(); err != nil {
+		return err
+	}
+	return ms.DB(ms.dbName).C(collectionName).Find(selector).One(container)
 }
 
 func (ms *mongoSession) HostName() string {

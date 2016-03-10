@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gibberz/mongo"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"io"
 	"sort"
 	"time"
@@ -29,10 +30,14 @@ var (
 //----------------------------------------
 
 type Saveable interface {
+	reload(sess mongo.Session) error
+
 	Save(sess mongo.Session) error
 }
 
 type Key interface {
+	Id() string
+
 	Fingerprint() string
 
 	Active() bool
@@ -51,6 +56,8 @@ type SaveableKey interface {
 }
 
 type User interface {
+	Id() string
+
 	Name() string
 
 	Email() string
@@ -62,8 +69,6 @@ type SaveableUser interface {
 	User
 
 	Saveable
-
-	AddKey(key Key)
 }
 
 type UserKeyCollection interface {
@@ -95,6 +100,8 @@ type UserEncryptedDataCollection interface {
 //----------------------------------------
 
 type baseKey struct {
+	Id bson.ObjectId "_id"
+
 	Fingerprint string
 
 	IsActive bool
@@ -104,7 +111,22 @@ type baseKey struct {
 	ExpiresAt time.Time
 }
 
+func (bk *baseKey) reload(sess mongo.Session) error {
+	saved := &baseKey{}
+	if err := sess.FindDocument(saved, bson.M{"fingerprint": bk.Fingerprint}, KEY_COLLECTION_NAME); err != nil {
+		return err
+	}
+
+	bk.Id = saved.Id
+	bk.IsActive = saved.IsActive
+	bk.ActivatedAt = saved.ActivatedAt
+	bk.ExpiresAt = saved.ExpiresAt
+
+	return nil
+}
+
 func (bk *baseKey) Save(sess mongo.Session) error {
+	bk.Id = bson.NewObjectId()
 	return sess.SaveDocument(bk, KEY_COLLECTION_NAME)
 }
 
@@ -114,6 +136,10 @@ func (bk *baseKey) Encrypt(msg string) (string, error) {
 
 type key struct {
 	*baseKey
+}
+
+func (k *key) Id() string {
+	return k.baseKey.Id.String()
 }
 
 func (k *key) Fingerprint() string {
@@ -137,6 +163,8 @@ func (k *key) ExpiresAt() time.Time {
 //----------------------------------------
 
 type baseUser struct {
+	Id bson.ObjectId "_id"
+
 	Name string
 
 	Email string
@@ -144,12 +172,29 @@ type baseUser struct {
 	Comment string
 }
 
+func (bu *baseUser) reload(sess mongo.Session) error {
+	saved := baseUser{}
+	if err := sess.FindDocument(&saved, bson.M{"email": bu.Email}, USER_COLLECTION_NAME); err != nil {
+		return nil
+	}
+
+	bu.Id = saved.Id
+	bu.Name = saved.Name
+	bu.Comment = saved.Comment
+	return nil
+}
+
 func (bu *baseUser) Save(sess mongo.Session) error {
+	bu.Id = bson.NewObjectId()
 	return sess.SaveDocument(bu, USER_COLLECTION_NAME)
 }
 
 type user struct {
 	*baseUser
+}
+
+func (u *user) Id() string {
+	return u.baseUser.Id.String()
 }
 
 func (u *user) Name() string {
@@ -183,11 +228,21 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 	k := &key{bk}
 	if err := k.Save(sess); err != nil && !mgo.IsDup(err) {
 		return nil, nil, err
+	} else {
+		if err := k.reload(sess); err != nil {
+			return nil, nil, err
+		}
+		println("Key id is", k.Id())
 	}
 
 	u := &user{bu}
 	if err := u.Save(sess); err != nil && !mgo.IsDup(err) {
 		return nil, nil, err
+	} else {
+		if err := u.reload(sess); err != nil {
+			return nil, nil, err
+		}
+		println("User id is", u.Id())
 	}
 
 	return k, u, nil
