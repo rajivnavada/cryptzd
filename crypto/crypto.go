@@ -33,8 +33,6 @@ type Saveable interface {
 }
 
 type Key interface {
-	Id() int
-
 	Fingerprint() string
 
 	Active() bool
@@ -53,8 +51,6 @@ type SaveableKey interface {
 }
 
 type User interface {
-	Id() int
-
 	Name() string
 
 	Email() string
@@ -66,6 +62,8 @@ type SaveableUser interface {
 	User
 
 	Saveable
+
+	AddKey(key Key)
 }
 
 type UserKeyCollection interface {
@@ -97,8 +95,6 @@ type UserEncryptedDataCollection interface {
 //----------------------------------------
 
 type baseKey struct {
-	Id int
-
 	Fingerprint string
 
 	IsActive bool
@@ -118,10 +114,6 @@ func (bk *baseKey) Encrypt(msg string) (string, error) {
 
 type key struct {
 	*baseKey
-}
-
-func (k *key) Id() int {
-	return k.baseKey.Id
 }
 
 func (k *key) Fingerprint() string {
@@ -145,8 +137,6 @@ func (k *key) ExpiresAt() time.Time {
 //----------------------------------------
 
 type baseUser struct {
-	Id int
-
 	Name string
 
 	Email string
@@ -160,10 +150,6 @@ func (bu *baseUser) Save(sess mongo.Session) error {
 
 type user struct {
 	*baseUser
-}
-
-func (u *user) Id() int {
-	return u.baseUser.Id
 }
 
 func (u *user) Name() string {
@@ -207,7 +193,9 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 	return k, u, nil
 }
 
+//----------------------------------------
 // INIT
+//----------------------------------------
 
 func init() {
 	// Make sure we have the right indexes on the data
