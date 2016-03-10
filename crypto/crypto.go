@@ -2,12 +2,12 @@ package crypto
 
 import (
 	"errors"
-	"fmt"
 	"gibberz/mongo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -29,10 +29,8 @@ var (
 // PUBLIC INTERFACES
 //----------------------------------------
 
-type Saveable interface {
-	reload(sess mongo.Session) error
-
-	Save(sess mongo.Session) error
+type Looper interface {
+	Next() error
 }
 
 type Key interface {
@@ -46,13 +44,9 @@ type Key interface {
 
 	ExpiresAt() time.Time
 
-	Encrypt(string) (string, error)
-}
+	Encrypt(string) (EncryptedData, error)
 
-type SaveableKey interface {
-	Key
-
-	Saveable
+	Messages() EncryptedDataCollection
 }
 
 type User interface {
@@ -63,34 +57,18 @@ type User interface {
 	Email() string
 
 	Comment() string
-}
 
-type SaveableUser interface {
-	User
-
-	Saveable
-}
-
-type UserKeyCollection interface {
-	User() User
-
-	Next() Key
-
-	sort.Interface
+	Keys() []Key
 }
 
 type EncryptedData interface {
-	Data() []byte
-
-	Key() Key
-
 	io.Reader
 }
 
-type UserEncryptedDataCollection interface {
-	User() User
+type EncryptedDataCollection interface {
+	Looper
 
-	Next() EncryptedData
+	Data() EncryptedData
 
 	sort.Interface
 }
@@ -112,26 +90,38 @@ type baseKey struct {
 }
 
 func (bk *baseKey) reload(sess mongo.Session) error {
-	saved := &baseKey{}
-	if err := sess.FindDocument(saved, bson.M{"fingerprint": bk.Fingerprint}, KEY_COLLECTION_NAME); err != nil {
+	if err := sess.FindDocument(bk, bson.M{"fingerprint": bk.Fingerprint}, KEY_COLLECTION_NAME); err != nil {
 		return err
 	}
-
-	bk.Id = saved.Id
-	bk.IsActive = saved.IsActive
-	bk.ActivatedAt = saved.ActivatedAt
-	bk.ExpiresAt = saved.ExpiresAt
-
 	return nil
 }
 
-func (bk *baseKey) Save(sess mongo.Session) error {
-	bk.Id = bson.NewObjectId()
-	return sess.SaveDocument(bk, KEY_COLLECTION_NAME)
+func (bk *baseKey) mergeWith(saved *baseKey) {
+	bk.Id = saved.Id
+	bk.IsActive = saved.IsActive
+	bk.ActivatedAt = saved.ActivatedAt
 }
 
-func (bk *baseKey) Encrypt(msg string) (string, error) {
-	return encryptMessage(msg, bk.Fingerprint)
+func (bk *baseKey) ObjectId() bson.ObjectId {
+	return bk.Id
+}
+
+func (bk *baseKey) Save(sess mongo.Session) error {
+	if !bk.Id.Valid() {
+		println(bk.Id)
+		println("Not valid :(")
+		bk.Id = bson.NewObjectId()
+		return sess.SaveDocument(bk, KEY_COLLECTION_NAME)
+	}
+	return sess.UpdateDocument(bk, KEY_COLLECTION_NAME)
+}
+
+func (bk *baseKey) Encrypt(msg string) (EncryptedData, error) {
+	s, err := encryptMessage(msg, bk.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	return strings.NewReader(s), nil
 }
 
 type key struct {
@@ -158,6 +148,10 @@ func (k *key) ExpiresAt() time.Time {
 	return k.baseKey.ExpiresAt
 }
 
+func (k *key) Messages() EncryptedDataCollection {
+	return nil
+}
+
 //----------------------------------------
 // A user implementation
 //----------------------------------------
@@ -170,23 +164,32 @@ type baseUser struct {
 	Email string
 
 	Comment string
+
+	Keys []string
 }
 
 func (bu *baseUser) reload(sess mongo.Session) error {
-	saved := baseUser{}
-	if err := sess.FindDocument(&saved, bson.M{"email": bu.Email}, USER_COLLECTION_NAME); err != nil {
-		return nil
+	if err := sess.FindDocument(bu, bson.M{"email": bu.Email}, USER_COLLECTION_NAME); err != nil {
+		return err
 	}
-
-	bu.Id = saved.Id
-	bu.Name = saved.Name
-	bu.Comment = saved.Comment
 	return nil
 }
 
+func (bu *baseUser) mergeWith(saved *baseUser) {
+	bu.Id = saved.Id
+	bu.Keys = saved.Keys
+}
+
+func (bu *baseUser) ObjectId() bson.ObjectId {
+	return bu.Id
+}
+
 func (bu *baseUser) Save(sess mongo.Session) error {
-	bu.Id = bson.NewObjectId()
-	return sess.SaveDocument(bu, USER_COLLECTION_NAME)
+	if !bu.Id.Valid() {
+		bu.Id = bson.NewObjectId()
+		return sess.SaveDocument(bu, USER_COLLECTION_NAME)
+	}
+	return sess.UpdateDocument(bu, USER_COLLECTION_NAME)
 }
 
 type user struct {
@@ -209,6 +212,10 @@ func (u *user) Comment() string {
 	return u.baseUser.Comment
 }
 
+func (u *user) Keys() []Key {
+	return nil
+}
+
 //----------------------------------------
 // PUBLIC FUNCTIONS
 //----------------------------------------
@@ -220,32 +227,56 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 
 	if err := importPublicKey(publicKey, bk, bu); err != nil {
 		return nil, nil, err
+	} else if bk == nil || bu == nil {
+		return nil, nil, errors.New("An unknown error has occured in ImportKeyAndUser()")
 	}
 
 	sess := mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
 	defer sess.Close()
 
-	k := &key{bk}
-	if err := k.Save(sess); err != nil && !mgo.IsDup(err) {
+	savedKey := &baseKey{Fingerprint: bk.Fingerprint}
+	if err := savedKey.reload(sess); err != nil && err != mgo.ErrNotFound {
 		return nil, nil, err
 	} else {
-		if err := k.reload(sess); err != nil {
+		// If we successfully loaded the key from database, update some data
+		if err == nil {
+			bk.mergeWith(savedKey)
+		}
+		if err := bk.Save(sess); err != nil {
 			return nil, nil, err
 		}
-		println("Key id is", k.Id())
 	}
 
-	u := &user{bu}
-	if err := u.Save(sess); err != nil && !mgo.IsDup(err) {
+	savedUser := &baseUser{Email: bu.Email}
+	if err := savedUser.reload(sess); err != nil && err != mgo.ErrNotFound {
 		return nil, nil, err
 	} else {
-		if err := u.reload(sess); err != nil {
+		// Update the object
+		if err == nil {
+			bu.mergeWith(savedUser)
+		}
+		// We need to detect if the key already exists in the user's list of keys
+		keyExists := false
+		if bu.Keys == nil {
+			bu.Keys = make([]string, 0)
+		} else {
+			for _, fpr := range bu.Keys {
+				if fpr == bk.Fingerprint {
+					break
+				}
+			}
+		}
+		// Add the key if necessary
+		if !keyExists {
+			bu.Keys = append(bu.Keys, bk.Fingerprint)
+		}
+		// Save and done
+		if err := bu.Save(sess); err != nil {
 			return nil, nil, err
 		}
-		println("User id is", u.Id())
 	}
 
-	return k, u, nil
+	return &key{bk}, &user{bu}, nil
 }
 
 //----------------------------------------
@@ -260,10 +291,7 @@ func init() {
 	if err := indexer.AddUniqueIndex(USER_COLLECTION_NAME, "email"); err != nil {
 		panic(err)
 	}
-	fmt.Println("Unique index applied to", USER_COLLECTION_NAME)
-
 	if err := indexer.AddUniqueIndex(KEY_COLLECTION_NAME, "fingerprint"); err != nil {
 		panic(err)
 	}
-	fmt.Println("Unique index applied to", KEY_COLLECTION_NAME)
 }

@@ -3,6 +3,7 @@ package mongo
 import (
 	"errors"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 //----------------------------------------
@@ -27,6 +28,10 @@ type Indexer interface {
 	Close()
 }
 
+type Updateable interface {
+	ObjectId() bson.ObjectId
+}
+
 type Session interface {
 	HostName() string
 
@@ -37,6 +42,8 @@ type Session interface {
 	SaveDocument(doc interface{}, collectionName string) error
 
 	FindDocument(container interface{}, selector interface{}, collectionName string) error
+
+	UpdateDocument(doc Updateable, collectionName string) error
 }
 
 //----------------------------------------
@@ -80,6 +87,13 @@ func (ms *mongoSession) SaveDocument(doc interface{}, collectionName string) err
 		return err
 	}
 	return ms.DB(ms.dbName).C(collectionName).Insert(doc)
+}
+
+func (ms *mongoSession) UpdateDocument(doc Updateable, collectionName string) error {
+	if err := ms.init(); err != nil {
+		return err
+	}
+	return ms.DB(ms.dbName).C(collectionName).UpdateId(doc.ObjectId(), doc)
 }
 
 func (ms *mongoSession) FindDocument(container interface{}, selector interface{}, collectionName string) error {

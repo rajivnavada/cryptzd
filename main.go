@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"gibberz/crypto"
+	"io"
 	"os"
 )
 
@@ -12,15 +12,11 @@ func main() {
 	buf.ReadFrom(os.Stdin)
 
 	if buf.Len() == 0 {
-		fmt.Println("No input. Got nothing to do")
+		println("No input. Got nothing to do. Exiting")
 		return
 	}
 
-	s := buf.String()
-	//fmt.Println("Will send")
-	//fmt.Println(s)
-	//fmt.Println("")
-	key, _, err := crypto.ImportKeyAndUser(s)
+	key, _, err := crypto.ImportKeyAndUser(buf.String())
 	if err != nil {
 		panic(err)
 	}
@@ -30,5 +26,5 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(output)
+	io.Copy(os.Stdout, output)
 }
