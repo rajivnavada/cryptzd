@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"gibberz/crypto"
 	"os"
+	"zecure/crypto"
 )
 
 func main() {
@@ -15,17 +15,16 @@ func main() {
 		return
 	}
 
-	key, user, err := crypto.ImportKeyAndUser(buf.String())
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = key.EncryptMessage("Hello World!", "A message", user)
+	_, user, err := crypto.ImportKeyAndUser(buf.String())
 	if err != nil {
 		panic(err)
 	}
 
 	//io.Copy(os.Stdout, strings.NewReader(output.Text()))
+
+	if err = user.EncryptMessage("Hello World!\n", "A message", user.Id()); err != nil {
+		panic(err)
+	}
 
 	kc := user.Keys()
 	for k := kc.Next(); k != nil; k = kc.Next() {

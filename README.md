@@ -7,3 +7,9 @@ Building:
 ---------
 
 Drop zecure into `$GOPATH/src` and run `make install`
+
+Dependencies:
+-------------
+
+* `brew cask install gpgtools`
+* The above command installs /usr/local/MacGPG2. If you want to run gpg2 from the command line, make sure you include `/usr/local/MacGPG2/bin` in `$PATH`

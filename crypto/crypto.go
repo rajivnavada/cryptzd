@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"time"
 	"zecure/mongo"
 )
@@ -25,6 +26,9 @@ var (
 	MissingEmailError               = errors.New("Public key must contain a valid email address.")
 	FailedEncryptionError           = errors.New("Failed to encrypt message.")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
+
+	importPublicKeyLock = &sync.Mutex{}
+	encryptLock         = &sync.Mutex{}
 )
 
 //----------------------------------------
@@ -51,7 +55,7 @@ type Key interface {
 	Encrypt(string) (io.Reader, error)
 
 	// This will save the message to DB
-	EncryptMessage(messageToEncrypt, subject string, sender User) (Message, error)
+	EncryptMessage(messageToEncrypt, subject, sender string) (Message, error)
 
 	Messages() MessageCollection
 }
@@ -70,6 +74,8 @@ type User interface {
 	UpdatedAt() time.Time
 
 	Keys() KeyCollection
+
+	EncryptMessage(message, subject, sender string) error
 }
 
 type Message interface {
@@ -173,12 +179,16 @@ func (bk *baseKey) Encrypt(msg string) (io.Reader, error) {
 	return strings.NewReader(cipher), nil
 }
 
-func (bk *baseKey) EncryptMessage(s, subject string, sender User) (Message, error) {
+func (bk *baseKey) EncryptMessage(s, subject, sender string) (Message, error) {
+	// Protect access to the C functions
+	encryptLock.Lock()
 	cipher, err := encryptMessage(s, bk.Fingerprint)
+	encryptLock.Unlock()
+
 	if err != nil {
 		return nil, err
 	}
-	m, err := newMessage(cipher, subject, sender, &key{bk})
+	m, err := newMessage(cipher, subject, sender, bk.Id.Hex())
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +341,57 @@ func (u *user) UpdatedAt() time.Time {
 	return u.baseUser.UpdatedAt
 }
 
+func (u *user) EncryptMessage(message, subject, sender string) error {
+	// First get the keys for this user
+	kc := u.Keys()
+
+	okCh := make(chan bool)
+	errCh := make(chan error)
+	total := 0
+
+	// Loop over the keys and create go routines to encrypt messages per key
+	for k := kc.Next(); k != nil; k = kc.Next() {
+
+		total++
+
+		go func(message, subject, sender string, k Key) {
+
+			_, err := k.EncryptMessage(message, subject, sender)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			okCh <- true
+
+		}(message, subject, sender, k)
+
+	}
+
+	numOk := 0
+	numErr := 0
+	errors := make([]error, 0)
+
+	for numOk+numErr < total {
+		select {
+		case <-okCh:
+			numOk++
+			break
+
+		case err := <-errCh:
+			numErr++
+			log.Println("An error occured when trying to encrypt message")
+			log.Println(err)
+			errors = append(errors, err)
+			break
+		}
+	}
+
+	if numErr > 0 {
+		return errors[0]
+	}
+	return nil
+}
+
 func FindUserWithId(id string) (User, error) {
 	u := &user{&baseUser{Id: bson.ObjectId(id)}}
 	if err := find(u); err != nil {
@@ -421,15 +482,15 @@ func (m *message) Key() Key {
 	return &key{k}
 }
 
-func newMessage(cipher, subject string, sender User, key Key) (*message, error) {
-	if cipher == "" || sender.Id() == "" || key.Id() == "" {
+func newMessage(cipher, subject, sender, key string) (*message, error) {
+	if cipher == "" || sender == "" || key == "" {
 		return nil, InvalidArgumentsForMessageError
 	}
 	return &message{&baseMessage{
 		Subject:   subject,
 		Cipher:    cipher,
-		Sender:    sender.Id(),
-		Key:       key.Id(),
+		Sender:    sender,
+		Key:       key,
 		CreatedAt: time.Now().UTC(),
 	}}, nil
 }
@@ -582,7 +643,12 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 	bk := &baseKey{}
 	bu := &baseUser{}
 
-	if err := importPublicKey(publicKey, bk, bu); err != nil {
+	// Protect access to the C function
+	importPublicKeyLock.Lock()
+	err := importPublicKey(publicKey, bk, bu)
+	importPublicKeyLock.Unlock()
+
+	if err != nil {
 		return nil, nil, err
 	} else if bk == nil || bu == nil {
 		return nil, nil, errors.New("An unknown error has occured in ImportKeyAndUser()")
