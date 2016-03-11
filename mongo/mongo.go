@@ -45,7 +45,7 @@ type Session interface {
 
 	Find(doc interface{}, selector bson.M, collectionName string) error
 
-	FindAll(docs []interface{}, selector bson.M, collectionName string) error
+	FindAll(docs interface{}, pageLength uint8, pageNum int, selector bson.M, collectionName string, sortFields ...string) error
 }
 
 //----------------------------------------
@@ -105,11 +105,16 @@ func (ms *mongoSession) Find(container interface{}, selector bson.M, collectionN
 	return ms.DB(ms.dbName).C(collectionName).Find(selector).One(container)
 }
 
-func (ms *mongoSession) FindAll(container []interface{}, selector bson.M, collectionName string) error {
+func (ms *mongoSession) FindAll(container interface{}, pageLength uint8, pageNum int, selector bson.M, collectionName string, sortFields ...string) error {
 	if err := ms.init(); err != nil {
 		return err
 	}
-	return ms.DB(ms.dbName).C(collectionName).Find(selector).Limit(len(container)).All(container)
+	if len(sortFields) == 0 {
+		sortFields = []string{"$natural"}
+	}
+
+	skipNum := int(pageLength) * pageNum
+	return ms.DB(ms.dbName).C(collectionName).Find(selector).Sort(sortFields...).Skip(skipNum).Limit(int(pageLength)).All(container)
 }
 
 func (ms *mongoSession) HostName() string {

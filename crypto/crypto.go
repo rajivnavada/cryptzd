@@ -69,7 +69,7 @@ type User interface {
 
 	UpdatedAt() time.Time
 
-	Keys() []Key
+	Keys() KeyCollection
 }
 
 type Message interface {
@@ -86,9 +86,11 @@ type Message interface {
 	CreatedAt() time.Time
 }
 
-type MessageCollection interface {
-	SetPageLength(len int)
+type KeyCollection interface {
+	Next() Key
+}
 
+type MessageCollection interface {
 	Next() Message
 }
 
@@ -96,12 +98,16 @@ type MessageCollection interface {
 // GENERIC FUNCTIONS
 //----------------------------------------
 
+func newSession() mongo.Session {
+	return mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
+}
+
 type reloadable interface {
 	reloadFromDataStore(mongo.Session) error
 }
 
 func find(selector reloadable) error {
-	sess := mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
+	sess := newSession()
 	defer sess.Close()
 	return selector.reloadFromDataStore(sess)
 }
@@ -177,13 +183,17 @@ func (bk *baseKey) EncryptMessage(s, subject string, sender User) (Message, erro
 		return nil, err
 	}
 
-	sess := mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
+	sess := newSession()
 	defer sess.Close()
 
 	if err := m.Save(sess); err != nil {
 		return nil, err
 	}
 	return m, err
+}
+
+func (bk *baseKey) Messages() MessageCollection {
+	return newMessageCollection(uint8(100), bk.Id.Hex(), 0)
 }
 
 type key struct {
@@ -212,10 +222,6 @@ func (k *key) ActivatedAt() time.Time {
 
 func (k *key) ExpiresAt() time.Time {
 	return k.baseKey.ExpiresAt
-}
-
-func (k *key) Messages() MessageCollection {
-	return nil
 }
 
 func (k *key) User() User {
@@ -285,6 +291,10 @@ func (bu *baseUser) ObjectId() bson.ObjectId {
 	return bu.Id
 }
 
+func (bu *baseUser) Keys() KeyCollection {
+	return newKeyCollection(uint8(20), bu.Id.Hex(), 0)
+}
+
 func (bu *baseUser) Save(sess mongo.Session) error {
 	if !bu.Id.Valid() {
 		bu.Id = bson.NewObjectId()
@@ -319,10 +329,6 @@ func (u *user) CreatedAt() time.Time {
 
 func (u *user) UpdatedAt() time.Time {
 	return u.baseUser.UpdatedAt
-}
-
-func (u *user) Keys() []Key {
-	return nil
 }
 
 func FindUserWithId(id string) (User, error) {
@@ -429,6 +435,145 @@ func newMessage(cipher, subject string, sender User, key Key) (*message, error) 
 }
 
 //----------------------------------------
+// KEY COLLECTION IMPLEMENTATION
+//----------------------------------------
+
+type keyCollection struct {
+	pageLength uint8
+
+	keys []*baseKey
+
+	user string
+
+	currentPage int
+
+	currentIndex uint8
+
+	hasData bool
+}
+
+func (kc *keyCollection) loadFromDataStore(sess mongo.Session) error {
+	if kc.hasData {
+		return nil
+	}
+	if err := sess.FindAll(&kc.keys, kc.pageLength, kc.currentPage, bson.M{"user": kc.user}, KEY_COLLECTION_NAME); err != nil {
+		return err
+	}
+	kc.hasData = true
+	return nil
+}
+
+func (kc *keyCollection) Next() Key {
+	sess := newSession()
+	defer sess.Close()
+
+	// Load data
+	if !kc.hasData {
+		kc.loadFromDataStore(sess)
+	}
+
+	//	// Check if we need to load next page
+	//	if kc.currentIndex == kc.pageLength {
+	//		kc.currentIndex = 0
+	//		kc.pageLength++
+	//		kc.hasData = false
+	//		kc.keys = make([]*baseKey, kc.pageLength)
+	//
+	//		kc.loadFromDataStore(sess)
+	//	}
+
+	// If we've reached the end of the collection, just return nil
+	if int(kc.currentIndex) == len(kc.keys) {
+		return nil
+	}
+	// Now we can get the key from the array and increment index and return
+	k := kc.keys[kc.currentIndex]
+	kc.currentIndex++
+	return &key{k}
+}
+
+func newKeyCollection(pageLength uint8, user string, pageNum int) *keyCollection {
+	return &keyCollection{
+		pageLength:   pageLength,
+		user:         user,
+		keys:         make([]*baseKey, pageLength),
+		currentIndex: 0,
+		currentPage:  pageNum,
+		hasData:      false,
+	}
+}
+
+//----------------------------------------
+// MESSAGE COLLECTION IMPLEMENTATION
+//----------------------------------------
+
+type messageCollection struct {
+	pageLength uint8
+
+	messages []*baseMessage
+
+	key string
+
+	currentPage int
+
+	currentIndex uint8
+
+	hasData bool
+}
+
+func (mc *messageCollection) loadFromDataStore(sess mongo.Session) error {
+	if mc.hasData {
+		return nil
+	}
+	if err := sess.FindAll(&mc.messages, mc.pageLength, mc.currentPage, bson.M{"key": mc.key}, MESSAGE_COLLECTION_NAME); err != nil {
+		return err
+	}
+	mc.hasData = true
+	return nil
+}
+
+func (mc *messageCollection) Next() Message {
+	sess := newSession()
+	defer sess.Close()
+
+	// Load data
+	if !mc.hasData {
+		mc.loadFromDataStore(sess)
+	}
+
+	// Commenting auto-next page code
+	//	// Check if we need to load next page
+	//	if mc.currentIndex == mc.pageLength {
+	//		mc.currentIndex = 0
+	//		mc.pageLength++
+	//		mc.hasData = false
+	//		mc.messages = make([]*baseMessage, mc.pageLength)
+	//
+	//		mc.loadFromDataStore(sess)
+	//	}
+
+	// If we've reached the end of the collection, just return nil
+	if int(mc.currentIndex) == len(mc.messages) {
+		return nil
+	}
+	// Now we can get the key from the array and increment index and return
+	m := mc.messages[mc.currentIndex]
+	mc.currentIndex++
+	return &message{m}
+}
+
+func newMessageCollection(pageLength uint8, key string, pageNum int) *messageCollection {
+	return &messageCollection{
+		pageLength:   pageLength,
+		key:          key,
+		messages:     make([]*baseMessage, pageLength),
+		currentIndex: 0,
+		currentPage:  pageNum,
+		hasData:      false,
+	}
+}
+
+//----------------------------------------
 // PUBLIC FUNCTIONS
 //----------------------------------------
 
@@ -443,7 +588,7 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 		return nil, nil, errors.New("An unknown error has occured in ImportKeyAndUser()")
 	}
 
-	sess := mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
+	sess := newSession()
 	defer sess.Close()
 
 	savedUser := &baseUser{Email: bu.Email}

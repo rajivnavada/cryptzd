@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"gibberz/crypto"
-	"io"
 	"os"
-	"strings"
 )
 
 func main() {
@@ -22,10 +20,24 @@ func main() {
 		panic(err)
 	}
 
-	output, err := key.EncryptMessage("Hello World!", "A message", user)
+	_, err = key.EncryptMessage("Hello World!", "A message", user)
 	if err != nil {
 		panic(err)
 	}
 
-	io.Copy(os.Stdout, strings.NewReader(output.Text()))
+	//io.Copy(os.Stdout, strings.NewReader(output.Text()))
+
+	kc := user.Keys()
+	for k := kc.Next(); k != nil; k = kc.Next() {
+		println("Printing messages for key with fingerprint = ", k.Fingerprint())
+		println("---------------------------------------------------------------------------------------")
+		println("")
+
+		mc := k.Messages()
+		for m := mc.Next(); m != nil; m = mc.Next() {
+			println(m.Text())
+			println("")
+		}
+	}
+
 }
