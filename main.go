@@ -15,14 +15,17 @@ func main() {
 		return
 	}
 
-	_, user, err := crypto.ImportKeyAndUser(buf.String())
+	_, sender, err := crypto.ImportKeyAndUser(buf.String())
 	if err != nil {
 		panic(err)
 	}
 
-	//io.Copy(os.Stdout, strings.NewReader(output.Text()))
+	user, err := crypto.FindUserWithEmail("rajivn@zillow.com")
+	if err != nil {
+		panic(err)
+	}
 
-	if err = user.EncryptMessage("Hello World!\n", "A message", user.Id()); err != nil {
+	if err = user.EncryptMessage("Hello World!\n", "A message", sender.Id()); err != nil {
 		panic(err)
 	}
 
