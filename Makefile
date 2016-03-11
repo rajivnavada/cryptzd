@@ -1,5 +1,5 @@
 CC = clang
-BINS = gibberz
+BINS = zecure
 
 all: $(BINS)
 
@@ -9,7 +9,7 @@ format:
 test:
 	go test ./...
 
-gibberz:
+zecure:
 	CC=$(CC) go build -o $@ main.go
 
 install: $(BINS)

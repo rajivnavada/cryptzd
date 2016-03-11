@@ -2,18 +2,18 @@ package crypto
 
 import (
 	"errors"
-	"gibberz/mongo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io"
 	"log"
 	"strings"
 	"time"
+	"zecure/mongo"
 )
 
 const (
 	MONGO_HOST_NAME         string = "127.0.0.1"
-	MONGO_DB_NAME           string = "gibberz"
+	MONGO_DB_NAME           string = "zecure"
 	KEY_COLLECTION_NAME     string = "keys"
 	USER_COLLECTION_NAME    string = "users"
 	MESSAGE_COLLECTION_NAME string = "messages"
