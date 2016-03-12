@@ -1,10 +1,14 @@
 package crypto
 
 import (
+	"crypto/md5"
 	"errors"
+	"fmt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"io"
 	"log"
+	"strings"
 	"sync"
 	"time"
 	"zecure/mongo"
@@ -69,6 +73,8 @@ type User interface {
 	Email() string
 
 	Comment() string
+
+	ImageURL() string
 
 	CreatedAt() time.Time
 
@@ -268,7 +274,7 @@ func (k *key) User() User {
 }
 
 func FindKeyWithId(id string) (Key, error) {
-	k := &key{&baseKey{Id: bson.ObjectId(id)}}
+	k := &key{&baseKey{Id: bson.ObjectIdHex(id)}}
 	if err := find(k); err != nil {
 		return nil, err
 	}
@@ -356,6 +362,13 @@ func (u *user) Comment() string {
 	return u.baseUser.Comment
 }
 
+func (u *user) ImageURL() string {
+	email := strings.ToLower(strings.TrimSpace(u.Email()))
+	h := md5.New()
+	io.WriteString(h, email)
+	return fmt.Sprintf("//www.gravatar.com/avatar/%x?s=64&d=wavatar", h.Sum(nil))
+}
+
 func (u *user) CreatedAt() time.Time {
 	return u.baseUser.CreatedAt
 }
@@ -416,7 +429,7 @@ func (u *user) EncryptMessage(message, subject, sender string) error {
 }
 
 func FindUserWithId(id string) (User, error) {
-	u := &user{&baseUser{Id: bson.ObjectId(id)}}
+	u := &user{&baseUser{Id: bson.ObjectIdHex(id)}}
 	if err := find(u); err != nil {
 		return nil, err
 	}
@@ -487,7 +500,7 @@ func (m *message) CreatedAt() time.Time {
 
 func (m *message) Sender() User {
 	senderId := m.baseMessage.Sender
-	sender := &baseUser{Id: bson.ObjectId(senderId)}
+	sender := &baseUser{Id: bson.ObjectIdHex(senderId)}
 
 	if err := find(sender); err != nil {
 		log.Println("An error occured trying to find user with id = ", senderId)
@@ -499,7 +512,7 @@ func (m *message) Sender() User {
 
 func (m *message) Key() Key {
 	keyId := m.baseMessage.Key
-	k := &baseKey{Id: bson.ObjectId(keyId)}
+	k := &baseKey{Id: bson.ObjectIdHex(keyId)}
 
 	if err := find(k); err != nil {
 		log.Println("An error occured trying to find key with id = ", keyId)
@@ -692,7 +705,7 @@ func (mc *messageCollection) loadFromDataStore() error {
 	if mc.hasData {
 		return nil
 	}
-	if err := sess.FindAll(&mc.messages, mc.pageLength, mc.currentPage, bson.M{"key": mc.key}, MESSAGE_COLLECTION_NAME); err != nil {
+	if err := sess.FindAll(&mc.messages, mc.pageLength, mc.currentPage, bson.M{"key": mc.key}, MESSAGE_COLLECTION_NAME, "-createdat"); err != nil {
 		return err
 	}
 

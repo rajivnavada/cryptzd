@@ -34,26 +34,28 @@ var (
 	MissingMessageError = errors.New("POST data does not contain a message")
 )
 
-func GetLoginHandler(w http.ResponseWriter, r *http.Request) {
+func GetLogin(w http.ResponseWriter, r *http.Request) {
 	// If user is already logged in, redirect them to index page
 	if sess, err := CurrentSession(r); err == nil && !sess.IsEmpty() {
 		http.Redirect(w, r, IndexURL, http.StatusSeeOther)
 		return
 	}
 	// Else Render template
-	templateDefs := struct {
+	templateDefs := newTemplateArgs()
+	templateDefs.Extensions = &struct {
 		LoginURL               string
 		PublicKeyFormFieldName string
 	}{
 		LoginURL:               LoginURL,
 		PublicKeyFormFieldName: PublicKeyFormFieldName,
 	}
-	if err := loginTemplate.Execute(w, &templateDefs); err != nil {
+
+	if err := loginTemplate.Execute(w, templateDefs); err != nil {
 		panic(err)
 	}
 }
 
-func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
+func PostLogin(w http.ResponseWriter, r *http.Request) {
 	// Handle the actual logging in
 	// Get the public key information and process
 	publicKey := r.FormValue(PublicKeyFormFieldName)
@@ -84,6 +86,7 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 	activationURL := buildUrl(r, ActivateURLBase+token, "")
 
 	so := &SessionObject{
+		UserId:          user.Id(),
 		UserName:        user.Name(),
 		UserEmail:       user.Email(),
 		KeyFingerprint:  key.Fingerprint(),
@@ -114,7 +117,7 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, buildUrl(r, PendingActivationURL, ""), http.StatusSeeOther)
 }
 
-func NeedActivationMessageHandler(w http.ResponseWriter, r *http.Request) {
+func NeedActivationMessage(w http.ResponseWriter, r *http.Request) {
 	// If the user is not authenticated return
 	sess := mustBeAuthenticated(w, r)
 	if sess == nil {
@@ -133,7 +136,8 @@ func NeedActivationMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare the template definitions
-	templateDefs := &struct {
+	templateDefs := newTemplateArgs()
+	templateDefs.Extensions = &struct {
 		UserEmail      string
 		KeyFingerprint string
 	}{
@@ -147,7 +151,7 @@ func NeedActivationMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ActivationHandler(w http.ResponseWriter, r *http.Request) {
+func Activation(w http.ResponseWriter, r *http.Request) {
 	// Check that the token matches and redirects appropriately
 	sess := mustBeAuthenticated(w, r)
 	if sess == nil {
@@ -187,7 +191,7 @@ func ActivationHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, IndexURL, http.StatusSeeOther)
 }
 
-func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+func Logout(w http.ResponseWriter, r *http.Request) {
 	// Logout handler.
 	sess, err := CurrentSession(r)
 	if !assertErrorIsNil(w, err, "Error getting current session") {
@@ -203,13 +207,14 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, LoginURL, http.StatusSeeOther)
 }
 
-func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
+func Websocket(w http.ResponseWriter, r *http.Request) {
 	// Upgrades the connection to a websocket connection and registers the user in a users map
 	// For new connections, it should send the initial list of messages
 	// For existing connections, it should push new messages as they arrive for the user
+	// Returns a list of users with a connection state bit
 }
 
-func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
+func GetMessages(w http.ResponseWriter, r *http.Request) {
 	// Checks if the user is logged in or not. If not logged in redirect to login page
 	sess := mustBeAuthenticated(w, r)
 	if sess == nil {
@@ -223,7 +228,7 @@ func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the message collection and use it to render template of user messages
-	kc, err := key.Messages().Slice()
+	mc, err := key.Messages().Slice()
 	if !assertErrorIsNil(w, err, "Error extracting messages for a key") {
 		return
 	}
@@ -233,50 +238,63 @@ func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute the template and return
-	messagesTemplate.Execute(w, &struct {
-		Messages []crypto.Message
-		Users    []crypto.User
+	templateDefs := newTemplateArgs()
+	templateDefs.ShowHeader = false
+	templateDefs.Extensions = &struct {
+		Messages             []crypto.Message
+		Users                []crypto.User
+		SubjectFormFieldName string
+		MessageFormFieldName string
 	}{
-		Messages: kc,
-		Users:    uc,
-	})
+		Messages:             mc,
+		Users:                uc,
+		SubjectFormFieldName: SubjectFormFieldName,
+		MessageFormFieldName: MessageFormFieldName,
+	}
 
+	// Execute the template and return
+	messagesTemplate.Execute(w, templateDefs)
 }
 
-func PostMessageHandler(w http.ResponseWriter, r *http.Request) {
+func PostMessage(w http.ResponseWriter, r *http.Request) {
 	// Checks if the user is logged in or not. If not logged in redirect to login page
 	sess := mustBeAuthenticated(w, r)
 	if sess == nil {
 		return
 	}
 
-	errs := make([]errors, 0)
+	errs := make([]error, 0)
+
+	sender, err := sess.LoggedInUser()
+	if err != nil {
+		logError(err, "Could not find sender with Email "+sess.UserEmail)
+		errs = append(errs, err)
+	}
 
 	// Check userId
 	userId := r.FormValue(UserIdFormFieldName)
 	if userId == "" {
-		logError(err, "No userId in request")
+		logError(MissingUserIdError, "No userId in request")
 		errs = append(errs, MissingUserIdError)
 	}
 
 	// Check message
 	message := r.FormValue(MessageFormFieldName)
 	if message == "" {
-		logError(err, "No message in request")
+		logError(MissingMessageError, "No message in request")
 		errs = append(errs, MissingMessageError)
 	}
 
 	// Subject can be empty
 	subject := r.FormValue(SubjectFormFieldName)
 
-	toUser, err := FindUserWithId(userId)
+	toUser, err := crypto.FindUserWithId(userId)
 	if err != nil {
 		logError(err, "Could not find user with Id "+userId)
 		errs = append(errs, err)
 	}
 
-	err = toUser.EncryptMessage(message, subject, toUser.Id())
+	err = toUser.EncryptMessage(message, subject, sender.Id())
 	if err != nil {
 		logError(err, "Error occured when encrypting message for user")
 		errs = append(errs, err)
@@ -298,14 +316,14 @@ func Router() http.Handler {
 	r := mux.NewRouter()
 
 	// Add routes
-	r.HandleFunc(IndexURL, GetMessagesHandler).Methods("GET")
-	r.HandleFunc(IndexURL, PostMessageHandler).Methods("POST")
-	r.HandleFunc(LoginURL, GetLoginHandler).Methods("GET")
-	r.HandleFunc(LoginURL, PostLoginHandler).Methods("POST")
-	r.HandleFunc(PendingActivationURL, NeedActivationMessageHandler).Methods("GET")
-	r.HandleFunc("/activate/{token}", ActivationHandler).Methods("GET")
-	r.HandleFunc("/logout", LogoutHandler).Methods("GET")
-	r.HandleFunc("/wc", WebsocketHandler)
+	r.HandleFunc(IndexURL, GetMessages).Methods("GET")
+	r.HandleFunc(IndexURL, PostMessage).Methods("POST")
+	r.HandleFunc(LoginURL, GetLogin).Methods("GET")
+	r.HandleFunc(LoginURL, PostLogin).Methods("POST")
+	r.HandleFunc(PendingActivationURL, NeedActivationMessage).Methods("GET")
+	r.HandleFunc("/activate/{token}", Activation).Methods("GET")
+	r.HandleFunc("/logout", Logout).Methods("GET")
+	r.HandleFunc("/wc", Websocket)
 
 	return r
 }

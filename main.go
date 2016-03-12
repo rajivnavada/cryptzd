@@ -47,8 +47,10 @@ func OldMain() {
 }
 
 func main() {
+	port := os.Getenv("PORT")
 	router := web.Router()
-	addr := "127.0.0.1:8000"
+	addr := "127.0.0.1:" + port
+
 	println("Will start http server at:", addr)
 	if err := http.ListenAndServe(addr, router); err != nil {
 		panic(err)

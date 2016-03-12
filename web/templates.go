@@ -10,8 +10,8 @@ var baseTemplateHtml = `<!doctype html>
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>Zecure | A platform to securely send messages to peers</title>
-		{{ template "HeadHTML" . }}
+		<title>{{ .Title }}</title>
+		{{ template "HeadHTML" .Extensions }}
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 		<style type="text/css">
 			html, body{min-height:100%;}
@@ -22,14 +22,14 @@ var baseTemplateHtml = `<!doctype html>
 			.hidden {display:none;}
 			.nav-tabs > li > a {border-radius:0;}
 		</style>
-		<style type="text/css">{{ template "HeadCSS" }}</style>
+		<style type="text/css">{{ template "HeadCSS" .Extensions }}</style>
 	</head>
 	<body>
-		<h1 class="ctxt">Welcome to Zecure</h1>
-		<div id="main">{{ template "BodyMain" . }}</div>
+		{{ if .ShowHeader }}<h1 class="ctxt">Zecure</h1>{{ end }}
+		<div id="main">{{ template "BodyMain" .Extensions }}</div>
 		<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
-		{{ template "BodyAfterMain" . }}
+		{{ template "BodyAfterMain" .Extensions }}
 	</body>
 </html>`
 
@@ -98,34 +98,136 @@ var activationEmailTemplate *textTemplate.Template
 
 var messagesTemplateHtml = `
 {{ define "HeadHTML" }}{{ end }}
-{{ define "HeadCSS" }}.tabpanel{min-height:5em;}{{ end }}
+{{ define "HeadCSS" }}
+.tabpanel{min-height:5em;}
+#main { width: 100%; margin: 0; }
+.upper { text-transform: uppercase; }
+.left-sidebar {
+	display: flex;
+	flex-direction: column;
+	background-color: #666;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 180px;
+	bottom: 0;
+}
+.left-sidebar > h3 { color: #ff6666; padding-bottom: 1em; margin-bottom: 1em; border-bottom: 1px solid #ff6666; }
+.left-sidebar .link {
+	padding: 0.5em 12px;
+	cursor: pointer;
+}
+.left-sidebar .link:hover {
+	background-color: #999;
+}
+.left-sidebar .link:active,
+.left-sidebar .link.active {
+	background-color: #fff;
+}
+.left-sidebar .link.active a,
+.left-sidebar .link:active a {
+	color: #666;
+}
+.left-sidebar .link:hover a {
+	color: #222;
+}
+.left-sidebar .link a {
+	color: #fff;
+}
+
+a,
+a:hover,
+a:visited,
+a:active,
+a:focus {
+	text-decoration: none;
+	border: 0 none;
+}
+
+.main-content { display: flex; margin-left: 180px; }
+.main-content > .row { width: 100%; }
+.main-content .link-content { display: none; }
+.main-content .link-content.active { display: block; }
+.main-content .link-content .media { cursor: pointer; }
+.main-content .link-content .media-heading { padding-top: 3px; }
+.main-content .link-content .media-body .email { color: #888; margin-bottom: 5px; }
+.main-content .link-content .form { padding: 20px; border: 1px solid #ccc; margin-top: 1em; }
+
+.media-left .thumbnail { margin-bottom: 0; }
+
+.link-content > div { padding: 1em 0; }
+
+textarea.form-control, input[type="text"] { border-radius: 0; }
+textarea.form-control { resize: vertical; }
+{{ end }}
 {{ define "BodyMain" }}
-<div class="container-fluid tmargin">
+<div class="left-sidebar">
+	<h3 class="ctxt upper">Cryptz</h3>
+	<div class="links">
+		<div class="link active">
+			<a href="#messages" title="Messages">Messages</a>
+		</div>
+		<div class="link">
+			<a href="#users" title="Users">Users</a>
+		</div>
+	</div>
+</div>
+<div class="main-content container-fluid tmargin">
 	<div class="row">
-		<div class="col-xs-12">
-			<ul class="nav nav-tabs" role="tablist">
-				<li role="presentation" class="active">
-					<a href="#messages" aria-controls="messages" role="tab" data-toggle="tab">Messages</a>
-				</li>
-				<li role="presentation">
-					<a href="#users" aria-controls="users" role="tab" data-toggle="tab">Users</a>
-				</li>
-			</ul>
-			<div class="tab-content">
-				<div role="tabpanel" class="tab-pane active" id="messages">
-					{{ if .Messages }}
-						{{ range $index, $message := .Messages }}
-							<p>{{ $message.Sender.Name }}</p>
-						{{ end }}
-					{{ else }}
-						<h3 class="ctxt">No messages for you!</h3>
+		<div class="col-xs-12 col-md-6">
+			<div class="link-content active" id="messages">
+				{{ if .Messages }}
+					{{ range $index, $message := .Messages }}
+						<div class="media">
+							<div class="media-left">
+								<p class="thumbnail">
+									<img class="media-object" src="{{ $message.Sender.ImageURL }}" alt="">
+								</p>
+							</div>
+							<div class="media-body">
+								<h4 class="media-heading">{{ $message.Subject }}</h4>
+								<p class="email">{{ $message.Sender.Name }} ({{ $message.Sender.Email }})</p>
+							</div>
+							<pre>{{ $message.Text }}</pre>
+						</div>
 					{{ end }}
-				</div>
-				<div role="tabpanel" class="tab-pane" id="users">
-					{{ range $index, $user := .Users }}
-						<p>{{ $user.Email }}</p>
-					{{ end }}
-				</div>
+				{{ else }}
+					<h3>No messages for you!</h3>
+				{{ end }}
+			</div>
+			<div class="link-content" id="users">
+				{{ range $index, $user := .Users }}
+					<div>
+						<div class="media">
+							<div class="media-left">
+								<p class="thumbnail">
+									<img class="media-object" src="{{ $user.ImageURL }}" alt="">
+								</p>
+							</div>
+							<div class="media-body">
+								<h4 class="media-heading">{{ $user.Name }}</h4>
+								<p class="email">{{ $user.Email }}</p>
+								<a class="send-message-link" data-userid="{{ $user.Id }}">Send Message</a>
+							</div>
+						</div>	
+						<div class="form hidden">
+							<form method="POST" action="/" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
+								<input type="hidden" name="user_id" value="{{ $user.Id }}">
+								<div class="form-group">
+									<label for="subject-{{ $user.Id }}">Subject</label>
+									<input class="form-control" type="text" id="subject-{{ $user.Id }}" name="subject" placeholder="Sending you a zecure message">
+								</div>
+								<div class="form-group">
+									<label for="message-{{ $user.Id }}">Enter your message below</label>
+									<textarea class="form-control" rows="5" id="message-{{ $user.Id }}" name="message" placeholder="Lorem Ipsum ..."></textarea>
+								</div>
+								<div class="form-group">
+									<button class="btn btn-default" type="submmit">Send Message</button>
+								</div>
+							</form>
+						</div>
+					</div>
+				{{ end }}
 			</div>
 		</div>
 	</div>
@@ -135,9 +237,42 @@ var messagesTemplateHtml = `
 <script type="text/javascript">
 $(function () {
 	"use strict";
-	$('[role="presentation"] a').click(function (e) {
+
+	var $links = $('.left-sidebar .links .link');
+	var $linkContents = $('.main-content .link-content');
+	var $userMedia = $linkContents.find('.media');
+	var $messageForms = $linkContents.find('.form');
+
+	$links.click(function (e) {
+		var $this = $(this);
+
 		e.preventDefault();
-		$(this).tab('show');
+		
+		// Adds / Removes active class on the link
+		$links.removeClass('active');
+		$this.addClass('active');
+
+		// We need to find the link-content, this link points to and activate that.
+		var href = $.trim($this.find('a').attr('href'));
+		console.log(href);
+		$linkContents.removeClass('active');
+		$(href).addClass('active');
+
+		return false;
+	});
+
+	$userMedia.click(function (e) {
+		e.preventDefault();
+
+		var $this = $(this).siblings('.form');
+		if (!$this.hasClass('hidden')) {
+			$this.addClass('hidden');
+			return false;
+		}
+
+		$messageForms.addClass('hidden');
+		$this.removeClass('hidden');
+		return false;
 	});
 });
 </script>

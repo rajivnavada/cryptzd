@@ -2,14 +2,17 @@ package web
 
 import (
 	"encoding/gob"
+	"errors"
 	"github.com/gorilla/sessions"
 	"net/http"
 	"time"
+	"zecure/crypto"
 )
 
 var (
-	sessionStore sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11"))
-	sessionName                 = "ZecureSessions"
+	sessionStore    sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11"))
+	sessionName                    = "ZecureSessions"
+	NilSessionError                = errors.New("SessionObject is nil")
 )
 
 const (
@@ -17,16 +20,33 @@ const (
 )
 
 type SessionObject struct {
+	UserId           string
 	UserName         string
 	UserEmail        string
 	KeyFingerprint   string
 	ActivationURL    string
 	ActivationToken  []byte
 	ActivationExpiry time.Time
+	user             crypto.User
 }
 
 func (so *SessionObject) IsEmpty() bool {
 	return so == nil || so.ActivationExpiry.IsZero()
+}
+
+func (so *SessionObject) LoggedInUser() (crypto.User, error) {
+	if so == nil {
+		return nil, NilSessionError
+	}
+	if so.user != nil {
+		return so.user, nil
+	}
+	user, err := crypto.FindUserWithEmail(so.UserEmail)
+	if err != nil {
+		return nil, err
+	}
+	so.user = user
+	return so.user, err
 }
 
 func (so *SessionObject) Save(w http.ResponseWriter, r *http.Request) error {

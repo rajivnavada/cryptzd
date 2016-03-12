@@ -6,6 +6,19 @@ import (
 	"net/url"
 )
 
+type templateArgs struct {
+	Title      string
+	ShowHeader bool
+	Extensions interface{}
+}
+
+func newTemplateArgs() *templateArgs {
+	return &templateArgs{
+		Title:      "Zecure | A messaging platform to securely communicate with peers",
+		ShowHeader: true,
+	}
+}
+
 func logError(err error, otherInfo ...string) {
 	log.Println("")
 	log.Println("----------------------------------------")
