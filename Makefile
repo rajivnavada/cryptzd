@@ -18,3 +18,6 @@ install: $(BINS)
 clean:
 	rm -f $(BINS)
 
+web: clean all
+	exec ./zecure
+

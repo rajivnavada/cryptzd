@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"zecure/crypto"
+	"zecure/web"
 )
 
-func main() {
+func OldMain() {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(os.Stdin)
 
@@ -42,4 +44,13 @@ func main() {
 		}
 	}
 
+}
+
+func main() {
+	router := web.Router()
+	addr := "127.0.0.1:8000"
+	println("Will start http server at:", addr)
+	if err := http.ListenAndServe(addr, router); err != nil {
+		panic(err)
+	}
 }

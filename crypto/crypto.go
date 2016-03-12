@@ -4,9 +4,7 @@ import (
 	"errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"io"
 	"log"
-	"strings"
 	"sync"
 	"time"
 	"zecure/mongo"
@@ -52,12 +50,14 @@ type Key interface {
 	User() User
 
 	// This is a transient encrypt. Nothing is saved to DB
-	Encrypt(string) (io.Reader, error)
+	Encrypt(string) (string, error)
 
 	// This will save the message to DB
 	EncryptMessage(messageToEncrypt, subject, sender string) (Message, error)
 
 	Messages() MessageCollection
+
+	Activate() error
 }
 
 type User interface {
@@ -171,12 +171,12 @@ func (bk *baseKey) Save(sess mongo.Session) error {
 	return sess.Update(bk, KEY_COLLECTION_NAME)
 }
 
-func (bk *baseKey) Encrypt(msg string) (io.Reader, error) {
+func (bk *baseKey) Encrypt(msg string) (string, error) {
 	cipher, err := encryptMessage(msg, bk.Fingerprint)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return strings.NewReader(cipher), nil
+	return cipher, nil
 }
 
 func (bk *baseKey) EncryptMessage(s, subject, sender string) (Message, error) {
@@ -200,6 +200,18 @@ func (bk *baseKey) EncryptMessage(s, subject, sender string) (Message, error) {
 		return nil, err
 	}
 	return m, err
+}
+
+func (bk *baseKey) Activate() error {
+	bk.IsActive = true
+	if bk.ActivatedAt.IsZero() {
+		bk.ActivatedAt = time.Now().UTC()
+	}
+
+	sess := newSession()
+	defer sess.Close()
+
+	return bk.Save(sess)
 }
 
 func (bk *baseKey) Messages() MessageCollection {
