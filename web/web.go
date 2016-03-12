@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -22,6 +24,14 @@ const (
 	ActivateURLBase      = "/activate/"
 
 	PublicKeyFormFieldName = "public_key"
+	UserIdFormFieldName    = "user_id"
+	SubjectFormFieldName   = "subject"
+	MessageFormFieldName   = "message"
+)
+
+var (
+	MissingUserIdError  = errors.New("POST data does not contain a valid userId field")
+	MissingMessageError = errors.New("POST data does not contain a message")
 )
 
 func GetLoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +245,53 @@ func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostMessageHandler(w http.ResponseWriter, r *http.Request) {
+	// Checks if the user is logged in or not. If not logged in redirect to login page
+	sess := mustBeAuthenticated(w, r)
+	if sess == nil {
+		return
+	}
+
+	errs := make([]errors, 0)
+
+	// Check userId
+	userId := r.FormValue(UserIdFormFieldName)
+	if userId == "" {
+		logError(err, "No userId in request")
+		errs = append(errs, MissingUserIdError)
+	}
+
+	// Check message
+	message := r.FormValue(MessageFormFieldName)
+	if message == "" {
+		logError(err, "No message in request")
+		errs = append(errs, MissingMessageError)
+	}
+
+	// Subject can be empty
+	subject := r.FormValue(SubjectFormFieldName)
+
+	toUser, err := FindUserWithId(userId)
+	if err != nil {
+		logError(err, "Could not find user with Id "+userId)
+		errs = append(errs, err)
+	}
+
+	err = toUser.EncryptMessage(message, subject, toUser.Id())
+	if err != nil {
+		logError(err, "Error occured when encrypting message for user")
+		errs = append(errs, err)
+	}
+
+	// If len(errors) == 0, it would mean things worked successfully
+	err = json.NewEncoder(w).Encode(&struct {
+		Errors []error `json:"errors"`
+	}{
+		Errors: errs,
+	})
+
+	if err != nil {
+		logError(err, "An error occured when writing JSON to response writer")
+	}
 }
 
 func Router() http.Handler {
