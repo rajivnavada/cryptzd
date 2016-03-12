@@ -199,7 +199,29 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	// Checks if the user is logged in or not. If not logged in redirect to login page
+	sess, err := CurrentSession(r)
+	if err != nil || sess.IsEmpty() {
+		http.Redirect(w, r, IndexURL, http.StatusSeeOther)
+		return
+	}
+
 	// This is the landing page after login. It should send the initial set of messages
+	key, err := crypto.FindKeyWithFingerprint(sess.KeyFingerprint)
+	if err != nil {
+		logError(err, "Error finding key with fingerprint "+sess.KeyFingerprint)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Get the message collection and use it to render template of user messages
+	kc, err := key.Messages().Slice()
+	// Execute the template and return
+	messagesTemplate.Execute(w, &struct {
+		Messages []crypto.Message
+	}{
+		Messages: kc,
+	})
+
 }
 
 func PostMessageHandler(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +236,7 @@ func Router() http.Handler {
 	r.HandleFunc(LoginURL, GetLoginHandler).Methods("GET")
 	r.HandleFunc(LoginURL, PostLoginHandler).Methods("POST")
 	r.HandleFunc(PendingActivationURL, NeedActivationMessageHandler).Methods("GET")
-	r.HandleFunc("/activate/{token}", ActivationHandler).Methods("GET").Name("Activate")
+	r.HandleFunc("/activate/{token}", ActivationHandler).Methods("GET")
 	r.HandleFunc("/logout", LogoutHandler).Methods("GET")
 	r.HandleFunc("/wc", WebsocketHandler)
 

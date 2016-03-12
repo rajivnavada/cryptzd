@@ -24,6 +24,7 @@ var (
 	MissingEmailError               = errors.New("Public key must contain a valid email address.")
 	FailedEncryptionError           = errors.New("Failed to encrypt message.")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
+	StopIterationError              = errors.New("No more items to return")
 
 	importPublicKeyLock = &sync.Mutex{}
 	encryptLock         = &sync.Mutex{}
@@ -93,11 +94,15 @@ type Message interface {
 }
 
 type KeyCollection interface {
-	Next() Key
+	Next() (Key, error)
+
+	Slice() ([]Key, error)
 }
 
 type MessageCollection interface {
-	Next() Message
+	Next() (Message, error)
+
+	Slice() ([]Message, error)
 }
 
 //----------------------------------------
@@ -362,7 +367,7 @@ func (u *user) EncryptMessage(message, subject, sender string) error {
 	total := 0
 
 	// Loop over the keys and create go routines to encrypt messages per key
-	for k := kc.Next(); k != nil; k = kc.Next() {
+	for k, err := kc.Next(); k != nil && err == nil; k, err = kc.Next() {
 
 		total++
 
@@ -525,44 +530,49 @@ type keyCollection struct {
 	hasData bool
 }
 
-func (kc *keyCollection) loadFromDataStore(sess mongo.Session) error {
+func (kc *keyCollection) loadFromDataStore() error {
+	sess := newSession()
+	defer sess.Close()
+
 	if kc.hasData {
 		return nil
 	}
 	if err := sess.FindAll(&kc.keys, kc.pageLength, kc.currentPage, bson.M{"user": kc.user}, KEY_COLLECTION_NAME); err != nil {
 		return err
 	}
+
 	kc.hasData = true
 	return nil
 }
 
-func (kc *keyCollection) Next() Key {
-	sess := newSession()
-	defer sess.Close()
-
+func (kc *keyCollection) Next() (Key, error) {
 	// Load data
-	if !kc.hasData {
-		kc.loadFromDataStore(sess)
+	if err := kc.loadFromDataStore(); err != nil {
+		return nil, err
 	}
-
-	//	// Check if we need to load next page
-	//	if kc.currentIndex == kc.pageLength {
-	//		kc.currentIndex = 0
-	//		kc.pageLength++
-	//		kc.hasData = false
-	//		kc.keys = make([]*baseKey, kc.pageLength)
-	//
-	//		kc.loadFromDataStore(sess)
-	//	}
 
 	// If we've reached the end of the collection, just return nil
 	if int(kc.currentIndex) == len(kc.keys) {
-		return nil
+		return nil, StopIterationError
 	}
 	// Now we can get the key from the array and increment index and return
 	k := kc.keys[kc.currentIndex]
 	kc.currentIndex++
-	return &key{k}
+	return &key{k}, nil
+}
+
+func (kc *keyCollection) Slice() ([]Key, error) {
+	// Try to load data
+	if err := kc.loadFromDataStore(); err != nil {
+		return nil, err
+	}
+
+	ret := make([]Key, len(kc.keys))
+	for i, bk := range kc.keys {
+		ret[i] = &key{bk}
+	}
+
+	return ret, nil
 }
 
 func newKeyCollection(pageLength uint8, user string, pageNum int) *keyCollection {
@@ -594,45 +604,50 @@ type messageCollection struct {
 	hasData bool
 }
 
-func (mc *messageCollection) loadFromDataStore(sess mongo.Session) error {
+func (mc *messageCollection) loadFromDataStore() error {
+	sess := newSession()
+	defer sess.Close()
+
 	if mc.hasData {
 		return nil
 	}
 	if err := sess.FindAll(&mc.messages, mc.pageLength, mc.currentPage, bson.M{"key": mc.key}, MESSAGE_COLLECTION_NAME); err != nil {
 		return err
 	}
+
 	mc.hasData = true
 	return nil
 }
 
-func (mc *messageCollection) Next() Message {
-	sess := newSession()
-	defer sess.Close()
-
+func (mc *messageCollection) Next() (Message, error) {
 	// Load data
-	if !mc.hasData {
-		mc.loadFromDataStore(sess)
+	if err := mc.loadFromDataStore(); err != nil {
+		return nil, err
 	}
-
-	// Commenting auto-next page code
-	//	// Check if we need to load next page
-	//	if mc.currentIndex == mc.pageLength {
-	//		mc.currentIndex = 0
-	//		mc.pageLength++
-	//		mc.hasData = false
-	//		mc.messages = make([]*baseMessage, mc.pageLength)
-	//
-	//		mc.loadFromDataStore(sess)
-	//	}
 
 	// If we've reached the end of the collection, just return nil
 	if int(mc.currentIndex) == len(mc.messages) {
-		return nil
+		return nil, StopIterationError
 	}
+
 	// Now we can get the key from the array and increment index and return
 	m := mc.messages[mc.currentIndex]
 	mc.currentIndex++
-	return &message{m}
+	return &message{m}, nil
+}
+
+func (mc *messageCollection) Slice() ([]Message, error) {
+	// Load or error
+	if err := mc.loadFromDataStore(); err != nil {
+		return nil, err
+	}
+
+	ret := make([]Message, len(mc.messages))
+	for i, bm := range mc.messages {
+		ret[i] = &message{bm}
+	}
+
+	return ret, nil
 }
 
 func newMessageCollection(pageLength uint8, key string, pageNum int) *messageCollection {

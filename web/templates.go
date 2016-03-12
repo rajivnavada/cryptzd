@@ -87,6 +87,25 @@ is tied to the session that triggered this message.
 
 var activationEmailTemplate *textTemplate.Template
 
+var messagesTemplateHtml = `
+{{ define "HeadHTML" }}{{ end }}
+{{ define "HeadCSS" }}{{ end }}
+{{ define "BodyMain" }}
+<div class="container-fluid">
+	<div class="row">
+		<div class="col-xs-12 tmargin">
+			{{ range $index, $message := .Messages }}
+				<p>{{ $message.Sender.Name }}</p>
+			{{ end }}		
+		</div>
+	</div>
+</div>
+{{ end }}
+{{ define "BodyAfterMain" }}{{ end }}
+`
+
+var messagesTemplate *template.Template
+
 func init() {
 	var err error
 
@@ -106,6 +125,11 @@ func init() {
 	}
 
 	activationEmailTemplate, err = textTemplate.New("emailMessage").Parse(activationEmailTemplateText)
+	if err != nil {
+		panic(err)
+	}
+
+	messagesTemplate, err = template.Must(baseTemplate.Clone()).Parse(messagesTemplateHtml)
 	if err != nil {
 		panic(err)
 	}

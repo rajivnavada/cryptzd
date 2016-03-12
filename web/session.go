@@ -53,6 +53,11 @@ func CurrentSession(r *http.Request) (*SessionObject, error) {
 		return nil, err
 	}
 
+	// If the session is new, we don't need to do much more
+	if session.IsNew {
+		return &SessionObject{}, nil
+	}
+
 	saved, ok := session.Values[SessionObjectKey]
 	if !ok || saved == nil {
 		return &SessionObject{}, nil

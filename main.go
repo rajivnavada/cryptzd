@@ -32,13 +32,13 @@ func OldMain() {
 	}
 
 	kc := user.Keys()
-	for k := kc.Next(); k != nil; k = kc.Next() {
+	for k, err := kc.Next(); k != nil && err == nil; k, err = kc.Next() {
 		println("Printing messages for key with fingerprint = ", k.Fingerprint())
 		println("---------------------------------------------------------------------------------------")
 		println("")
 
 		mc := k.Messages()
-		for m := mc.Next(); m != nil; m = mc.Next() {
+		for m, err := mc.Next(); m != nil && err == nil; m, err = mc.Next() {
 			println(m.Text())
 			println("")
 		}
