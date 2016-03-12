@@ -93,11 +93,10 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 	activationEmailTemplate.Execute(activationEmailWriter, so)
 
 	activationMessage, err := key.Encrypt(activationEmailWriter.String())
-	if err != nil {
-		logError(err, "Error encrypting message")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if !assertErrorIsNil(w, err, "Error encrypting message") {
 		return
 	}
+
 	// TODO: send email
 	logIt(activationMessage)
 
@@ -106,21 +105,19 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func NeedActivationMessageHandler(w http.ResponseWriter, r *http.Request) {
-	// Get session
-	session, err := CurrentSession(r)
-	if err != nil || session.IsEmpty() {
-		logError(err, "Error creating session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	// If the user is not authenticated return
+	sess := mustBeAuthenticated(w, r)
+	if sess == nil {
 		return
 	}
 
 	// Get the session values
-	userEmail := session.UserEmail
+	userEmail := sess.UserEmail
 	if userEmail == "" {
 		logIt("ERROR: Could not get email from session")
 	}
 
-	keyFingerprint := session.KeyFingerprint
+	keyFingerprint := sess.KeyFingerprint
 	if keyFingerprint == "" {
 		logIt("ERROR: Could not get fingerprint from session")
 	}
@@ -142,13 +139,8 @@ func NeedActivationMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 func ActivationHandler(w http.ResponseWriter, r *http.Request) {
 	// Check that the token matches and redirects appropriately
-	sess, err := CurrentSession(r)
-	if err != nil {
-		logError(err, "Error creating session")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	} else if sess.IsEmpty() {
-		http.Redirect(w, r, LoginURL, http.StatusSeeOther)
+	sess := mustBeAuthenticated(w, r)
+	if sess == nil {
 		return
 	}
 
@@ -158,6 +150,8 @@ func ActivationHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check activation token
 	var token []byte
+	var err error
+
 	if token, err = hex.DecodeString(tokenStr); err != nil || len(token) != tokenLength {
 		logError(err, "Error converting token to byte array", "Token was: "+tokenStr)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -171,16 +165,12 @@ func ActivationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key, err := crypto.FindKeyWithFingerprint(sess.KeyFingerprint)
-	if err != nil {
-		logError(err, "Error finding key with fingerprint", sess.KeyFingerprint)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if !assertErrorIsNil(w, err, "Error finding key with fingerprint"+sess.KeyFingerprint) {
 		return
 	}
 
 	err = key.Activate()
-	if err != nil {
-		logError(err, "Error activating key")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if !assertErrorIsNil(w, err, "Error activating key") {
 		return
 	}
 
@@ -189,6 +179,18 @@ func ActivationHandler(w http.ResponseWriter, r *http.Request) {
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Logout handler.
+	sess, err := CurrentSession(r)
+	if !assertErrorIsNil(w, err, "Error getting current session") {
+		return
+	}
+
+	// Destroy the session
+	err = sess.Destroy(w, r)
+	if !assertErrorIsNil(w, err, "Error destroying session") {
+		return
+	}
+
+	http.Redirect(w, r, LoginURL, http.StatusSeeOther)
 }
 
 func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -199,27 +201,35 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	// Checks if the user is logged in or not. If not logged in redirect to login page
-	sess, err := CurrentSession(r)
-	if err != nil || sess.IsEmpty() {
-		http.Redirect(w, r, IndexURL, http.StatusSeeOther)
+	sess := mustBeAuthenticated(w, r)
+	if sess == nil {
 		return
 	}
 
 	// This is the landing page after login. It should send the initial set of messages
 	key, err := crypto.FindKeyWithFingerprint(sess.KeyFingerprint)
-	if err != nil {
-		logError(err, "Error finding key with fingerprint "+sess.KeyFingerprint)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if !assertErrorIsNil(w, err, "Error finding key with fingerprint"+sess.KeyFingerprint) {
 		return
 	}
 
 	// Get the message collection and use it to render template of user messages
 	kc, err := key.Messages().Slice()
+	if !assertErrorIsNil(w, err, "Error extracting messages for a key") {
+		return
+	}
+
+	uc, err := crypto.FindAllUsers().Slice()
+	if !assertErrorIsNil(w, err, "Error extracting all users") {
+		return
+	}
+
 	// Execute the template and return
 	messagesTemplate.Execute(w, &struct {
 		Messages []crypto.Message
+		Users    []crypto.User
 	}{
 		Messages: kc,
+		Users:    uc,
 	})
 
 }

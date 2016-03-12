@@ -13,12 +13,21 @@ var baseTemplateHtml = `<!doctype html>
 		<title>Zecure | A platform to securely send messages to peers</title>
 		{{ template "HeadHTML" . }}
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
-		<style type="text/css">html, body {min-height: 100%;} .ctxt{text-align:center;} #main { width: 700px; margin: 0 auto; } .btn{border-radius: 0;} .tmargin{margin-top: 2em;}</style>
+		<style type="text/css">
+			html, body{min-height:100%;}
+			#main{width:700px;margin:0 auto;}
+			.ctxt{text-align:center;}
+			.btn{border-radius:0;}
+			.tmargin{margin-top:2em;}
+			.hidden {display:none;}
+			.nav-tabs > li > a {border-radius:0;}
+		</style>
 		<style type="text/css">{{ template "HeadCSS" }}</style>
 	</head>
 	<body>
 		<h1 class="ctxt">Welcome to Zecure</h1>
 		<div id="main">{{ template "BodyMain" . }}</div>
+		<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
 		{{ template "BodyAfterMain" . }}
 	</body>
@@ -89,19 +98,50 @@ var activationEmailTemplate *textTemplate.Template
 
 var messagesTemplateHtml = `
 {{ define "HeadHTML" }}{{ end }}
-{{ define "HeadCSS" }}{{ end }}
+{{ define "HeadCSS" }}.tabpanel{min-height:5em;}{{ end }}
 {{ define "BodyMain" }}
-<div class="container-fluid">
+<div class="container-fluid tmargin">
 	<div class="row">
-		<div class="col-xs-12 tmargin">
-			{{ range $index, $message := .Messages }}
-				<p>{{ $message.Sender.Name }}</p>
-			{{ end }}		
+		<div class="col-xs-12">
+			<ul class="nav nav-tabs" role="tablist">
+				<li role="presentation" class="active">
+					<a href="#messages" aria-controls="messages" role="tab" data-toggle="tab">Messages</a>
+				</li>
+				<li role="presentation">
+					<a href="#users" aria-controls="users" role="tab" data-toggle="tab">Users</a>
+				</li>
+			</ul>
+			<div class="tab-content">
+				<div role="tabpanel" class="tab-pane active" id="messages">
+					{{ if .Messages }}
+						{{ range $index, $message := .Messages }}
+							<p>{{ $message.Sender.Name }}</p>
+						{{ end }}
+					{{ else }}
+						<h3 class="ctxt">No messages for you!</h3>
+					{{ end }}
+				</div>
+				<div role="tabpanel" class="tab-pane" id="users">
+					{{ range $index, $user := .Users }}
+						<p>{{ $user.Email }}</p>
+					{{ end }}
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
 {{ end }}
-{{ define "BodyAfterMain" }}{{ end }}
+{{ define "BodyAfterMain" }}
+<script type="text/javascript">
+$(function () {
+	"use strict";
+	$('[role="presentation"] a').click(function (e) {
+		e.preventDefault();
+		$(this).tab('show');
+	});
+});
+</script>
+{{ end }}
 `
 
 var messagesTemplate *template.Template

@@ -42,3 +42,24 @@ func buildUrl(r *http.Request, path, query string) string {
 	}
 	return u.String()
 }
+
+func mustBeAuthenticated(w http.ResponseWriter, r *http.Request) *SessionObject {
+	// Get session
+	session, err := CurrentSession(r)
+	if !assertErrorIsNil(w, err, "Error creating session") {
+		return nil
+	} else if session.IsEmpty() {
+		http.Redirect(w, r, LoginURL, http.StatusSeeOther)
+		return nil
+	}
+	return session
+}
+
+func assertErrorIsNil(w http.ResponseWriter, err error, logMessages ...string) bool {
+	if err != nil {
+		logError(err, logMessages...)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return false
+	}
+	return true
+}

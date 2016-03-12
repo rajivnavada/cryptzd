@@ -105,6 +105,12 @@ type MessageCollection interface {
 	Slice() ([]Message, error)
 }
 
+type UserCollection interface {
+	Next() (User, error)
+
+	Slice() ([]User, error)
+}
+
 //----------------------------------------
 // GENERIC FUNCTIONS
 //----------------------------------------
@@ -425,6 +431,10 @@ func FindUserWithEmail(email string) (User, error) {
 	return u, nil
 }
 
+func FindAllUsers() UserCollection {
+	return newUserCollection(uint8(50), 0)
+}
+
 //----------------------------------------
 // MESSAGE
 //----------------------------------------
@@ -580,6 +590,77 @@ func newKeyCollection(pageLength uint8, user string, pageNum int) *keyCollection
 		pageLength:   pageLength,
 		user:         user,
 		keys:         make([]*baseKey, pageLength),
+		currentIndex: 0,
+		currentPage:  pageNum,
+		hasData:      false,
+	}
+}
+
+//----------------------------------------
+// USER COLLECTION IMPLEMENTATION
+//----------------------------------------
+
+type userCollection struct {
+	pageLength uint8
+
+	users []*baseUser
+
+	currentPage int
+
+	currentIndex uint8
+
+	hasData bool
+}
+
+func (uc *userCollection) loadFromDataStore() error {
+	sess := newSession()
+	defer sess.Close()
+
+	if uc.hasData {
+		return nil
+	}
+	if err := sess.FindAll(&uc.users, uc.pageLength, uc.currentPage, nil, USER_COLLECTION_NAME); err != nil {
+		return err
+	}
+
+	uc.hasData = true
+	return nil
+}
+
+func (uc *userCollection) Next() (User, error) {
+	// Load data
+	if err := uc.loadFromDataStore(); err != nil {
+		return nil, err
+	}
+
+	// If we've reached the end of the collection, just return nil
+	if int(uc.currentIndex) == len(uc.users) {
+		return nil, StopIterationError
+	}
+	// Now we can get the key from the array and increment index and return
+	u := uc.users[uc.currentIndex]
+	uc.currentIndex++
+	return &user{u}, nil
+}
+
+func (uc *userCollection) Slice() ([]User, error) {
+	// Try to load data
+	if err := uc.loadFromDataStore(); err != nil {
+		return nil, err
+	}
+
+	ret := make([]User, len(uc.users))
+	for i, bu := range uc.users {
+		ret[i] = &user{bu}
+	}
+
+	return ret, nil
+}
+
+func newUserCollection(pageLength uint8, pageNum int) *userCollection {
+	return &userCollection{
+		pageLength:   pageLength,
+		users:        make([]*baseUser, pageLength),
 		currentIndex: 0,
 		currentPage:  pageNum,
 		hasData:      false,

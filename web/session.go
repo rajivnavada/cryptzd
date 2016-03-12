@@ -46,6 +46,17 @@ func (so *SessionObject) Save(w http.ResponseWriter, r *http.Request) error {
 	return session.Save(r, w)
 }
 
+func (so *SessionObject) Destroy(w http.ResponseWriter, r *http.Request) error {
+	// Prepare the session
+	session, err := sessionStore.Get(r, sessionName)
+	if err != nil || session.IsNew {
+		return err
+	}
+
+	delete(session.Values, SessionObjectKey)
+	return session.Save(r, w)
+}
+
 func CurrentSession(r *http.Request) (*SessionObject, error) {
 	// Get the session from the request
 	session, err := sessionStore.Get(r, sessionName)
