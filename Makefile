@@ -1,7 +1,7 @@
 CC = clang
-BINS = zecure
+BIN = cryptz
 
-all: $(BINS)
+all: $(BIN)
 
 format:
 	go fmt ./...
@@ -9,15 +9,15 @@ format:
 test:
 	go test ./...
 
-zecure:
+$(BIN):
 	CC=$(CC) go build -o $@ main.go
 
-install: $(BINS)
+install: $(BIN)
 	go install
 
 clean:
-	rm -f $(BINS)
+	rm -f $(BIN)
 
 web: clean all
-	exec ./zecure
+	exec ./$(BIN)
 

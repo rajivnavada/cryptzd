@@ -1,12 +1,12 @@
 package web
 
 import (
+	"cryptz/crypto"
 	"encoding/gob"
 	"errors"
 	"github.com/gorilla/sessions"
 	"net/http"
 	"time"
-	"zecure/crypto"
 )
 
 var (
@@ -30,11 +30,15 @@ type SessionObject struct {
 	user             crypto.User
 }
 
+func (so *SessionObject) IsCurrentUser(userId string) bool {
+	return so != nil && so.UserId == userId
+}
+
 func (so *SessionObject) IsEmpty() bool {
 	return so == nil || so.ActivationExpiry.IsZero()
 }
 
-func (so *SessionObject) LoggedInUser() (crypto.User, error) {
+func (so *SessionObject) User() (crypto.User, error) {
 	if so == nil {
 		return nil, NilSessionError
 	}

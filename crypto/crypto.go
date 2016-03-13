@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/md5"
+	"cryptz/mongo"
 	"errors"
 	"fmt"
 	"gopkg.in/mgo.v2"
@@ -11,12 +12,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"zecure/mongo"
 )
 
 const (
 	MONGO_HOST_NAME         string = "127.0.0.1"
-	MONGO_DB_NAME           string = "zecure"
+	MONGO_DB_NAME           string = "cryptz"
 	KEY_COLLECTION_NAME     string = "keys"
 	USER_COLLECTION_NAME    string = "users"
 	MESSAGE_COLLECTION_NAME string = "messages"
@@ -74,15 +74,21 @@ type User interface {
 
 	Comment() string
 
+	Active() bool
+
 	ImageURL() string
 
 	CreatedAt() time.Time
 
 	UpdatedAt() time.Time
 
+	ActivatedAt() time.Time
+
 	Keys() KeyCollection
 
 	EncryptMessage(message, subject, sender string) error
+
+	Activate() error
 }
 
 type Message interface {
@@ -302,9 +308,13 @@ type baseUser struct {
 
 	Comment string
 
+	IsActive bool
+
 	CreatedAt time.Time
 
 	UpdatedAt time.Time
+
+	ActivatedAt time.Time
 }
 
 // NOTE: this will change the receiver. Use carfully.
@@ -342,6 +352,18 @@ func (bu *baseUser) Save(sess mongo.Session) error {
 	return sess.Update(bu, USER_COLLECTION_NAME)
 }
 
+func (bu *baseUser) Activate() error {
+	bu.IsActive = true
+	if bu.ActivatedAt.IsZero() {
+		bu.ActivatedAt = time.Now().UTC()
+	}
+
+	sess := newSession()
+	defer sess.Close()
+
+	return bu.Save(sess)
+}
+
 type user struct {
 	*baseUser
 }
@@ -362,6 +384,10 @@ func (u *user) Comment() string {
 	return u.baseUser.Comment
 }
 
+func (u *user) Active() bool {
+	return u.baseUser.IsActive
+}
+
 func (u *user) ImageURL() string {
 	email := strings.ToLower(strings.TrimSpace(u.Email()))
 	h := md5.New()
@@ -375,6 +401,10 @@ func (u *user) CreatedAt() time.Time {
 
 func (u *user) UpdatedAt() time.Time {
 	return u.baseUser.UpdatedAt
+}
+
+func (u *user) ActivatedAt() time.Time {
+	return u.baseUser.ActivatedAt
 }
 
 func (u *user) EncryptMessage(message, subject, sender string) error {
@@ -632,7 +662,7 @@ func (uc *userCollection) loadFromDataStore() error {
 	if uc.hasData {
 		return nil
 	}
-	if err := sess.FindAll(&uc.users, uc.pageLength, uc.currentPage, nil, USER_COLLECTION_NAME); err != nil {
+	if err := sess.FindAll(&uc.users, uc.pageLength, uc.currentPage, bson.M{"isactive": true}, USER_COLLECTION_NAME); err != nil {
 		return err
 	}
 

@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"crypto/rand"
+	"cryptz/crypto"
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"zecure/crypto"
 	//"github.com/gorilla/websocket"
 )
 
@@ -189,6 +189,15 @@ func Activation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentUser, err := sess.User()
+	if !assertErrorIsNil(w, err, "Error getting current logged in user") {
+		return
+	}
+
+	if err = currentUser.Activate(); !assertErrorIsNil(w, err, "Error activating user") {
+		return
+	}
+
 	http.Redirect(w, r, IndexURL, http.StatusSeeOther)
 }
 
@@ -242,6 +251,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	templateDefs := newTemplateArgs()
 	templateDefs.ShowHeader = false
 	templateDefs.Extensions = &struct {
+		Session              *SessionObject
 		Messages             []crypto.Message
 		Users                []crypto.User
 		FormActionName       string
@@ -249,6 +259,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		SubjectFormFieldName string
 		MessageFormFieldName string
 	}{
+		Session:              sess,
 		Messages:             mc,
 		Users:                uc,
 		FormActionName:       buildUrl(r, IndexURL, ""),
@@ -270,7 +281,7 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 
 	errs := make([]string, 0)
 
-	sender, err := sess.LoggedInUser()
+	sender, err := sess.User()
 	if err != nil {
 		logError(err, "Could not find sender with Email "+sess.UserEmail)
 		errs = append(errs, err.Error())

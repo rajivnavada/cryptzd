@@ -1,12 +1,12 @@
 Description:
 ============
 
-`zecure` makes it easy to securely communicate with peers. Messages are encyrpted using the targets public key. Only encrypted messages are saved to the persistent store and the server has no ability to decrypt these messages.
+`cryptz` makes it easy to securely communicate with peers. Messages are encyrpted using the targets public key. Only encrypted messages are saved to the persistent store and the server has no ability to decrypt these messages.
 
 Building:
 ---------
 
-Drop zecure into `$GOPATH/src` and run `make install`
+Drop cryptz into `$GOPATH/src` and run `make install`
 
 Dependencies:
 -------------

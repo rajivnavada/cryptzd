@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
+	"cryptz/crypto"
+	"cryptz/web"
 	"net/http"
 	"os"
-	"zecure/crypto"
-	"zecure/web"
 )
 
 func OldMain() {
@@ -48,6 +48,10 @@ func OldMain() {
 
 func main() {
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+
 	router := web.Router()
 	addr := "127.0.0.1:" + port
 

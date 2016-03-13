@@ -14,7 +14,7 @@ type templateArgs struct {
 
 func newTemplateArgs() *templateArgs {
 	return &templateArgs{
-		Title:      "Zecure | A messaging platform to securely communicate with peers",
+		Title:      "CRYPTZ | A messaging platform to securely communicate with peers",
 		ShowHeader: true,
 	}
 }

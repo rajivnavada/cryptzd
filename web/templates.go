@@ -22,11 +22,13 @@ var baseTemplateHtml = `<!doctype html>
 			.tmargin{margin-top:2em;}
 			.hidden {display:none;}
 			.nav-tabs > li > a {border-radius:0;}
+			textarea.form-control, input[type="text"] { border-radius: 0; }
+			textarea.form-control { resize: vertical; }
 		</style>
 		<style type="text/css">{{ template "HeadCSS" .Extensions }}</style>
 	</head>
 	<body>
-		{{ if .ShowHeader }}<h1 class="ctxt">Zecure</h1>{{ end }}
+		{{ if .ShowHeader }}<h1 class="ctxt">CRYPTZ</h1>{{ end }}
 		<div id="main">{{ template "BodyMain" .Extensions }}</div>
 		<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
@@ -40,9 +42,9 @@ var loginTemplateHtml = `
 {{ define "HeadHTML" }}{{ end }}
 {{ define "HeadCSS" }}{{ end }}
 {{ define "BodyMain" }}
-<div class="container-fluid public_key_form">
+<div class="container-fluid public_key_form tmargin">
 	<div class="row">
-		<div class="col-xs-12">
+		<div class="col-xs-8 col-xs-offset-2 col-md-6 col-md-offset-3 ctxt">
 			<form action="{{ .LoginURL }}" method="POST" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
 				<div class="form-group">
 					<label for="pkey">Paste your public key below</label>
@@ -110,13 +112,23 @@ var messagesTemplateHtml = `
 	position: fixed;
 	top: 0;
 	left: 0;
-	width: 180px;
+	width: 120px;
 	bottom: 0;
 }
 .left-sidebar > h3 { color: #ff6666; padding-bottom: 1em; margin-bottom: 1em; border-bottom: 1px solid #ff6666; }
 .left-sidebar .link {
 	padding: 0.5em 12px;
 	cursor: pointer;
+}
+.left-sidebar .footer {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	left: 0;
+	height: 50px;
+	line-height: 50px;
+	border-top: 1px solid #ff6666;
+	color: #ff6666;
 }
 .left-sidebar .link:hover {
 	background-color: #999;
@@ -145,11 +157,12 @@ a:focus {
 	border: 0 none;
 }
 
-.main-content { display: flex; margin-left: 180px; }
+.main-content { display: flex; margin-left: 120px; }
 .main-content > .row { width: 100%; }
 .main-content .link-content { display: none; }
 .main-content .link-content.active { display: block; }
 .main-content .link-content .media { cursor: pointer; }
+.main-content .link-content .media-left .thumbnail { width: 64px; }
 .main-content .link-content .media-heading { padding-top: 3px; }
 .main-content .link-content .media-body .email { color: #888; margin-bottom: 5px; }
 .main-content .link-content .form { padding: 20px; border: 1px solid #ccc; margin-top: 1em; }
@@ -158,8 +171,6 @@ a:focus {
 
 .link-content > div { padding: 1em 0; }
 
-textarea.form-control, input[type="text"] { border-radius: 0; }
-textarea.form-control { resize: vertical; }
 .alert.alert-danger,
 .alert.alert-success {border-radius:0;margin-bottom: 6px;padding-top:0.3em;padding-bottom:0.3em;font-size:0.85em;}
 {{ end }}
@@ -173,6 +184,9 @@ textarea.form-control { resize: vertical; }
 		<div class="link">
 			<a href="#users" title="Users"><i class="glyphicon glyphicon-envelope"></i> Users</a>
 		</div>
+	</div>
+	<div class="footer ctxt">
+		&copy; 2016
 	</div>
 </div>
 <div class="main-content container-fluid tmargin">
@@ -208,7 +222,12 @@ textarea.form-control { resize: vertical; }
 								</p>
 							</div>
 							<div class="media-body">
-								<h4 class="media-heading">{{ $user.Name }}</h4>
+								<h4 class="media-heading">
+									{{ $user.Name }}
+									{{ if $.Session.IsCurrentUser $user.Id }}
+										&lt;-- That's you!
+									{{ end }}
+								</h4>
 								<p class="email">{{ $user.Email }}</p>
 								<a class="send-message-link" data-userid="{{ $user.Id }}">Send Message</a>
 							</div>
@@ -219,7 +238,7 @@ textarea.form-control { resize: vertical; }
 								<div class="alert hidden"></div>
 								<div class="form-group">
 									<label for="send-message-form-subject-{{ $user.Id }}">Subject</label>
-									<input class="form-control" type="text" id="send-message-form-subject-{{ $user.Id }}" name="subject" placeholder="Sending you a zecure message">
+									<input class="form-control" type="text" id="send-message-form-subject-{{ $user.Id }}" name="subject" placeholder="Sending you a cryptz message">
 								</div>
 								<div class="form-group">
 									<label for="send-message-form-message-{{ $user.Id }}">Enter your message below</label>
@@ -283,6 +302,9 @@ $(function () {
 			find('.alert').
 				removeClass('alert-success alert-danger').
 				addClass('hidden').
+			end().
+			find('[type="text"], textarea').
+				val('').
 			end().
 			find('[type="text"]').
 				focus();
