@@ -12,10 +12,14 @@ var baseTemplateHtml = `<!doctype html>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>{{ .Title }}</title>
 		{{ template "HeadHTML" .Extensions }}
+		<link href="https://fonts.googleapis.com/css?family=Monoton" rel="stylesheet" type="text/css">
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 		<style type="text/css">
 			html, body{min-height:100%;}
 			#main{width:700px;margin:0 auto;}
+			.dark-bg{background-color:#666;color:#efefef;}
+			.monoton{font-family:'Monoton',cursive;color:#ff6666;}
+			.xlarge{font-size:5em;}
 			.ctxt{text-align:center;}
 			.rtxt{text-align:right;}
 			.btn{border-radius:0;}
@@ -27,8 +31,8 @@ var baseTemplateHtml = `<!doctype html>
 		</style>
 		<style type="text/css">{{ template "HeadCSS" .Extensions }}</style>
 	</head>
-	<body>
-		{{ if .ShowHeader }}<h1 class="ctxt">CRYPTZ</h1>{{ end }}
+	<body class="{{ .BodyClasses }}">
+		{{ if .ShowHeader }}<h1 class="monoton ctxt tmargin xlarge">CRYPTZ</h1>{{ end }}
 		<div id="main">{{ template "BodyMain" .Extensions }}</div>
 		<script src="https://code.jquery.com/jquery-2.2.1.min.js" integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00=" crossorigin="anonymous"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
@@ -44,14 +48,14 @@ var loginTemplateHtml = `
 {{ define "BodyMain" }}
 <div class="container-fluid public_key_form tmargin">
 	<div class="row">
-		<div class="col-xs-8 col-xs-offset-2 col-md-6 col-md-offset-3 ctxt">
+		<div class="col-xs-10 col-xs-offset-1 ctxt">
 			<form action="{{ .LoginURL }}" method="POST" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
 				<div class="form-group">
-					<label for="pkey">Paste your public key below</label>
-					<textarea class="form-control" rows="12" id="pkey" name="{{ .PublicKeyFormFieldName }}"></textarea>
+					<label for="pkey">Sign in with your public key</label>
+					<textarea class="form-control" rows="12" id="pkey" name="{{ .PublicKeyFormFieldName }}" autofocus></textarea>
 				</div>
 				<div class="form-group">
-					<button class="btn btn-default" type="submit">Submit</button>
+					<button class="btn btn-default" type="submit">Sign in</button>
 				</div>
 			</form>
 		</div>
@@ -112,7 +116,7 @@ var messagesTemplateHtml = `
 	position: fixed;
 	top: 0;
 	left: 0;
-	width: 120px;
+	width: 132px;
 	bottom: 0;
 }
 .left-sidebar > h3 { color: #ff6666; padding-bottom: 1em; margin-bottom: 1em; border-bottom: 1px solid #ff6666; }
@@ -157,7 +161,7 @@ a:focus {
 	border: 0 none;
 }
 
-.main-content { display: flex; margin-left: 120px; }
+.main-content { display: flex; margin-left: 132px; }
 .main-content > .row { width: 100%; }
 .main-content .link-content { display: none; }
 .main-content .link-content.active { display: block; }
@@ -176,7 +180,7 @@ a:focus {
 {{ end }}
 {{ define "BodyMain" }}
 <div class="left-sidebar">
-	<h3 class="ctxt upper">Cryptz</h3>
+	<h3 class="ctxt upper monoton">Cryptz</h3>
 	<div class="links">
 		<div class="link active">
 			<a href="#messages" title="Messages"><i class="glyphicon glyphicon-user"></i> Messages</a>

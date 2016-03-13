@@ -7,15 +7,17 @@ import (
 )
 
 type templateArgs struct {
-	Title      string
-	ShowHeader bool
-	Extensions interface{}
+	Title       string
+	ShowHeader  bool
+	BodyClasses string
+	Extensions  interface{}
 }
 
 func newTemplateArgs() *templateArgs {
 	return &templateArgs{
-		Title:      "CRYPTZ | A messaging platform to securely communicate with peers",
-		ShowHeader: true,
+		Title:       "CRYPTZ | A messaging platform to securely communicate with peers",
+		ShowHeader:  true,
+		BodyClasses: "",
 	}
 }
 

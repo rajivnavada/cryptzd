@@ -43,6 +43,7 @@ func GetLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	// Else Render template
 	templateDefs := newTemplateArgs()
+	templateDefs.BodyClasses = "dark-bg"
 	templateDefs.Extensions = &struct {
 		LoginURL               string
 		PublicKeyFormFieldName string
