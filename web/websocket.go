@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"cryptz/crypto"
-	"encoding/json"
 	"github.com/gorilla/websocket"
 	"time"
 )
@@ -73,8 +72,14 @@ func (h *Hub) Run() {
 			for k, m := range messages {
 				// For each key, find if we have an active connection
 				if c, ok := h.connections[fingerprint(k)]; ok {
+					// Prepare a bytes buffer to collect the output
+					buf := &bytes.Buffer{}
 					// If there is an active connection, send message
-					c.send <- messageJson(m)
+					if err := messageTemplate.Execute(buf, m); err != nil {
+						logError(err, "Error constructing message HTML")
+					} else {
+						c.send <- buf.Bytes()
+					}
 				}
 			}
 		}
@@ -155,26 +160,4 @@ func (c *connection) writePump() {
 			}
 		}
 	}
-}
-
-func messageJson(message crypto.Message) []byte {
-	buf := &bytes.Buffer{}
-	encoder := json.NewEncoder(buf)
-	err := encoder.Encode(&struct {
-		Text string
-		From interface{}
-	}{
-		Text: message.Text(),
-		From: &struct {
-			Name  string
-			Email string
-		}{
-			Name:  message.Sender().Name(),
-			Email: message.Sender().Email(),
-		},
-	})
-	if err != nil {
-		return []byte{}
-	}
-	return buf.Bytes()
 }

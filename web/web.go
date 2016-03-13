@@ -22,6 +22,7 @@ const (
 	LoginURL             = "/login"
 	PendingActivationURL = "/pendingactivation"
 	ActivateURLBase      = "/activate/"
+	WebSocketURL         = "/ws"
 
 	PublicKeyFormFieldName = "public_key"
 	UserIdFormFieldName    = "user_id"
@@ -278,6 +279,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		UserIdFormFieldName  string
 		SubjectFormFieldName string
 		MessageFormFieldName string
+		WebSocketURL         string
 	}{
 		Session:              sess,
 		Messages:             mc,
@@ -286,6 +288,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		UserIdFormFieldName:  UserIdFormFieldName,
 		SubjectFormFieldName: SubjectFormFieldName,
 		MessageFormFieldName: MessageFormFieldName,
+		WebSocketURL:         buildWebSocketUrl(r, WebSocketURL),
 	}
 
 	// Execute the template and return

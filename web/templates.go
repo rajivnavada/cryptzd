@@ -199,21 +199,10 @@ a:focus {
 			<div class="link-content active" id="messages">
 				{{ if .Messages }}
 					{{ range $index, $message := .Messages }}
-						<div class="media">
-							<div class="media-left">
-								<p class="thumbnail">
-									<img class="media-object" src="{{ $message.Sender.ImageURL }}" alt="">
-								</p>
-							</div>
-							<div class="media-body">
-								<h4 class="media-heading">{{ $message.Subject }}</h4>
-								<p class="email">{{ $message.Sender.Name }} ({{ $message.Sender.Email }})</p>
-							</div>
-							<pre>{{ $message.Text }}</pre>
-						</div>
+						{{ template "Message" $message }}
 					{{ end }}
 				{{ else }}
-					<h3>No messages for you!</h3>
+					<h3 class="no-messages-header">No messages for you!</h3>
 				{{ end }}
 			</div>
 			<div class="link-content" id="users">
@@ -267,8 +256,10 @@ $(function () {
 
 	var $links = $('.left-sidebar .links .link');
 	var $linkContents = $('.main-content .link-content');
-	var $userMedia = $linkContents.find('.media');
-	var $messageForms = $linkContents.find('.form');
+	var $users = $('#users');
+	var $userMedia = $('#users').find('.media');
+	var $messageForms = $users.find('.form');
+	var $messages = $('#messages');
 
 	$links.click(function (e) {
 		var $this = $(this);
@@ -342,13 +333,45 @@ $(function () {
 				});
 
 				return false;
-			});
+	});
+
+	var wsConn = new WebSocket("{{ .WebSocketURL }}");
+	wsConn.onclose = function (e) {
+		console.log("Connection closed!");
+	};
+	wsConn.onmessage = function (e) {
+		console.log("Message received");
+		$messages.
+			find('.no-messages-header').
+				remove().
+			end().
+			prepend(e.data);
+	};
 });
 </script>
 {{ end }}
 `
 
 var messagesTemplate *template.Template
+
+var messageTemplateHtml = `
+{{ define "Message" }}
+<div class="media">
+	<div class="media-left">
+		<p class="thumbnail">
+			<img class="media-object" src="{{ .Sender.ImageURL }}" alt="">
+		</p>
+	</div>
+	<div class="media-body">
+		<h4 class="media-heading">{{ .Subject }}</h4>
+		<p class="email">{{ .Sender.Name }} ({{ .Sender.Email }})</p>
+	</div>
+	<pre>{{ .Text }}</pre>
+</div>
+{{ end }}
+`
+
+var messageTemplate *template.Template
 
 func init() {
 	var err error
@@ -377,4 +400,18 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	messagesTemplate, err = messagesTemplate.Parse(messageTemplateHtml)
+	if err != nil {
+		panic(err)
+	}
+
+	messageTemplate, err = template.New("message").Parse(`{{ template "Message" . }}`)
+	if err != nil {
+		panic(err)
+	}
+	messageTemplate, err = messageTemplate.Parse(messageTemplateHtml)
+	if err != nil {
+		panic(err)
+	}
+
 }

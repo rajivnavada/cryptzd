@@ -58,6 +58,21 @@ func buildUrl(r *http.Request, path, query string) string {
 	return u.String()
 }
 
+func buildWebSocketUrl(r *http.Request, path string) string {
+	scheme := "ws"
+	if r.TLS != nil {
+		scheme = "wss"
+	}
+
+	// Encrypt activation URL
+	u := &url.URL{
+		Scheme: scheme,
+		Host:   r.Host,
+		Path:   path,
+	}
+	return u.String()
+}
+
 func mustBeAuthenticated(w http.ResponseWriter, r *http.Request) *SessionObject {
 	// Get session
 	session, err := CurrentSession(r)
