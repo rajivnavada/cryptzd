@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	//"github.com/gorilla/websocket"
 )
 
 const (
@@ -219,10 +218,30 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func Websocket(w http.ResponseWriter, r *http.Request) {
+	// Get the session
+	sess := mustBeAuthenticated(w, r)
+	if sess == nil {
+		return
+	}
+
+	// Get the userId from the session. We'll need it when sending messages to a user
+	uid := sess.UserId
 	// Upgrades the connection to a websocket connection and registers the user in a users map
-	// For new connections, it should send the initial list of messages
-	// For existing connections, it should push new messages as they arrive for the user
-	// Returns a list of users with a connection state bit
+	wsConn, err := upgrader.Upgrade(w, r, nil)
+	if !assertErrorIsNil(w, err, "Error upgrading connection to websocket") {
+		return
+	}
+
+	c := &connection{
+		send:        make(chan []byte, 256),
+		ws:          wsConn,
+		userId:      userId(uid),
+		fingerprint: fingerprint(sess.KeyFingerprint),
+	}
+	H.register <- c
+
+	go c.writePump()
+	c.readPump()
 }
 
 func GetMessages(w http.ResponseWriter, r *http.Request) {
@@ -312,10 +331,12 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(errs) == 0 {
-		err = toUser.EncryptMessage(message, subject, sender.Id())
+		encryptedMessage, err := toUser.EncryptMessage(message, subject, sender.Id())
 		if err != nil {
 			logError(err, "Error occured when encrypting message for user")
 			errs = append(errs, err.Error())
+		} else {
+			H.broadcast <- encryptedMessage
 		}
 	}
 
@@ -342,7 +363,7 @@ func Router() http.Handler {
 	r.HandleFunc(PendingActivationURL, NeedActivationMessage).Methods("GET")
 	r.HandleFunc("/activate/{token}", Activation).Methods("GET")
 	r.HandleFunc("/logout", Logout).Methods("GET")
-	r.HandleFunc("/wc", Websocket)
+	r.HandleFunc("/ws", Websocket)
 
 	return r
 }

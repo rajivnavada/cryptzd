@@ -1,52 +1,21 @@
 package main
 
 import (
-	"bytes"
-	"cryptz/crypto"
 	"cryptz/web"
 	"net/http"
 	"os"
 )
 
-func OldMain() {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(os.Stdin)
-
-	if buf.Len() == 0 {
-		println("No input. Got nothing to do. Exiting")
-		return
-	}
-
-	_, sender, err := crypto.ImportKeyAndUser(buf.String())
-	if err != nil {
-		panic(err)
-	}
-
-	user, err := crypto.FindUserWithEmail("rajivn@zillow.com")
-	if err != nil {
-		panic(err)
-	}
-
-	if err = user.EncryptMessage("Hello World!\n", "A message", sender.Id()); err != nil {
-		panic(err)
-	}
-
-	kc := user.Keys()
-	for k, err := kc.Next(); k != nil && err == nil; k, err = kc.Next() {
-		println("Printing messages for key with fingerprint = ", k.Fingerprint())
-		println("---------------------------------------------------------------------------------------")
-		println("")
-
-		mc := k.Messages()
-		for m, err := mc.Next(); m != nil && err == nil; m, err = mc.Next() {
-			println(m.Text())
-			println("")
-		}
-	}
-
-}
+//var port = flag.String("addr", "8000", "HTTP port at which the service will run")
+//var host = flag.String("host", "127.0.0.1", "HTTP service host")
+//
 
 func main() {
+	// TODO: start the connection hub for websocket stuff
+	go web.H.Run()
+	defer web.H.Close()
+
+	//flag.Parse()
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"

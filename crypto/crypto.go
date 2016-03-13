@@ -86,7 +86,7 @@ type User interface {
 
 	Keys() KeyCollection
 
-	EncryptMessage(message, subject, sender string) error
+	EncryptMessage(message, subject, sender string) (map[string]Message, error)
 
 	Activate() error
 }
@@ -139,6 +139,15 @@ func find(selector reloadable) error {
 	sess := newSession()
 	defer sess.Close()
 	return selector.reloadFromDataStore(sess)
+}
+
+//----------------------------------------
+// Other types
+//----------------------------------------
+
+type encryptionResult struct {
+	key     string
+	message Message
 }
 
 //----------------------------------------
@@ -407,11 +416,11 @@ func (u *user) ActivatedAt() time.Time {
 	return u.baseUser.ActivatedAt
 }
 
-func (u *user) EncryptMessage(message, subject, sender string) error {
+func (u *user) EncryptMessage(message, subject, sender string) (map[string]Message, error) {
 	// First get the keys for this user
 	kc := u.Keys()
 
-	okCh := make(chan bool)
+	okCh := make(chan encryptionResult)
 	errCh := make(chan error)
 	total := 0
 
@@ -422,12 +431,15 @@ func (u *user) EncryptMessage(message, subject, sender string) error {
 
 		go func(message, subject, sender string, k Key) {
 
-			_, err := k.EncryptMessage(message, subject, sender)
+			encrypted, err := k.EncryptMessage(message, subject, sender)
 			if err != nil {
 				errCh <- err
 				return
 			}
-			okCh <- true
+			okCh <- encryptionResult{
+				key:     k.Fingerprint(),
+				message: encrypted,
+			}
 
 		}(message, subject, sender, k)
 
@@ -435,12 +447,14 @@ func (u *user) EncryptMessage(message, subject, sender string) error {
 
 	numOk := 0
 	numErr := 0
+	ret := make(map[string]Message)
 	errors := make([]error, 0)
 
 	for numOk+numErr < total {
 		select {
-		case <-okCh:
+		case encResult := <-okCh:
 			numOk++
+			ret[encResult.key] = encResult.message
 			break
 
 		case err := <-errCh:
@@ -453,9 +467,9 @@ func (u *user) EncryptMessage(message, subject, sender string) error {
 	}
 
 	if numErr > 0 {
-		return errors[0]
+		return nil, errors[0]
 	}
-	return nil
+	return ret, nil
 }
 
 func FindUserWithId(id string) (User, error) {
