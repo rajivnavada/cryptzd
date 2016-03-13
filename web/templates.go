@@ -17,6 +17,7 @@ var baseTemplateHtml = `<!doctype html>
 			html, body{min-height:100%;}
 			#main{width:700px;margin:0 auto;}
 			.ctxt{text-align:center;}
+			.rtxt{text-align:right;}
 			.btn{border-radius:0;}
 			.tmargin{margin-top:2em;}
 			.hidden {display:none;}
@@ -159,16 +160,18 @@ a:focus {
 
 textarea.form-control, input[type="text"] { border-radius: 0; }
 textarea.form-control { resize: vertical; }
+.alert.alert-danger,
+.alert.alert-success {border-radius:0;margin-bottom: 6px;padding-top:0.3em;padding-bottom:0.3em;font-size:0.85em;}
 {{ end }}
 {{ define "BodyMain" }}
 <div class="left-sidebar">
 	<h3 class="ctxt upper">Cryptz</h3>
 	<div class="links">
 		<div class="link active">
-			<a href="#messages" title="Messages">Messages</a>
+			<a href="#messages" title="Messages"><i class="glyphicon glyphicon-user"></i> Messages</a>
 		</div>
 		<div class="link">
-			<a href="#users" title="Users">Users</a>
+			<a href="#users" title="Users"><i class="glyphicon glyphicon-envelope"></i> Users</a>
 		</div>
 	</div>
 </div>
@@ -209,20 +212,21 @@ textarea.form-control { resize: vertical; }
 								<p class="email">{{ $user.Email }}</p>
 								<a class="send-message-link" data-userid="{{ $user.Id }}">Send Message</a>
 							</div>
-						</div>	
-						<div class="form hidden">
-							<form method="POST" action="/" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
-								<input type="hidden" name="user_id" value="{{ $user.Id }}">
+						</div>
+						<div class="form message-form hidden">
+							<form method="POST" action="{{ $.FormActionName }}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
+								<input type="hidden" name="{{ $.UserIdFormFieldName  }}" value="{{ $user.Id }}">
+								<div class="alert hidden"></div>
 								<div class="form-group">
-									<label for="subject-{{ $user.Id }}">Subject</label>
-									<input class="form-control" type="text" id="subject-{{ $user.Id }}" name="subject" placeholder="Sending you a zecure message">
+									<label for="send-message-form-subject-{{ $user.Id }}">Subject</label>
+									<input class="form-control" type="text" id="send-message-form-subject-{{ $user.Id }}" name="subject" placeholder="Sending you a zecure message">
 								</div>
 								<div class="form-group">
-									<label for="message-{{ $user.Id }}">Enter your message below</label>
-									<textarea class="form-control" rows="5" id="message-{{ $user.Id }}" name="message" placeholder="Lorem Ipsum ..."></textarea>
+									<label for="send-message-form-message-{{ $user.Id }}">Enter your message below</label>
+									<textarea class="form-control" rows="5" id="send-message-form-message-{{ $user.Id }}" name="message" placeholder="Lorem Ipsum ..."></textarea>
 								</div>
-								<div class="form-group">
-									<button class="btn btn-default" type="submmit">Send Message</button>
+								<div class="form-group rtxt">
+									<button class="btn btn-default" type="submit">Send Message</button>
 								</div>
 							</form>
 						</div>
@@ -254,7 +258,6 @@ $(function () {
 
 		// We need to find the link-content, this link points to and activate that.
 		var href = $.trim($this.find('a').attr('href'));
-		console.log(href);
 		$linkContents.removeClass('active');
 		$(href).addClass('active');
 
@@ -271,9 +274,49 @@ $(function () {
 		}
 
 		$messageForms.addClass('hidden');
-		$this.removeClass('hidden');
+
+		$this.
+			removeClass('hidden disabled').
+			find('button').
+				removeClass('hidden disabled').
+			end().
+			find('.alert').
+				removeClass('alert-success alert-danger').
+				addClass('hidden').
+			end().
+			find('[type="text"]').
+				focus();
+
 		return false;
 	});
+
+	$messageForms.
+		find('form').
+			submit(function (e) {
+				var $this = $(this);
+				if ($this.hasClass('disabled')) {
+					return false;
+				}
+
+				$this.addClass('disabled').find('[type="submit"]').addClass('disabled');
+
+				var action = $.trim($this.attr('action'));
+				var data = $this.serialize();
+
+				$.post(action, $this.serialize(), function (data) {
+					var o = $.parseJSON(data);
+					if (o.errors && o.errors.length > 0) {
+						console.error(o.errors);
+						$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger');
+					} else {
+						$this.find('.alert').html("Message sent successfully").addClass('alert-success').removeClass('hidden');
+					}
+				}).fail(function () {
+					$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger error');
+				});
+
+				return false;
+			});
 });
 </script>
 {{ end }}

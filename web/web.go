@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strings"
 	"time"
 	"zecure/crypto"
 	//"github.com/gorilla/websocket"
@@ -243,11 +244,15 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	templateDefs.Extensions = &struct {
 		Messages             []crypto.Message
 		Users                []crypto.User
+		FormActionName       string
+		UserIdFormFieldName  string
 		SubjectFormFieldName string
 		MessageFormFieldName string
 	}{
 		Messages:             mc,
 		Users:                uc,
+		FormActionName:       buildUrl(r, IndexURL, ""),
+		UserIdFormFieldName:  UserIdFormFieldName,
 		SubjectFormFieldName: SubjectFormFieldName,
 		MessageFormFieldName: MessageFormFieldName,
 	}
@@ -263,46 +268,48 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errs := make([]error, 0)
+	errs := make([]string, 0)
 
 	sender, err := sess.LoggedInUser()
 	if err != nil {
 		logError(err, "Could not find sender with Email "+sess.UserEmail)
-		errs = append(errs, err)
+		errs = append(errs, err.Error())
 	}
 
 	// Check userId
-	userId := r.FormValue(UserIdFormFieldName)
+	userId := strings.TrimSpace(r.FormValue(UserIdFormFieldName))
 	if userId == "" {
 		logError(MissingUserIdError, "No userId in request")
-		errs = append(errs, MissingUserIdError)
+		errs = append(errs, MissingUserIdError.Error())
 	}
 
 	// Check message
-	message := r.FormValue(MessageFormFieldName)
+	message := strings.TrimSpace(r.FormValue(MessageFormFieldName))
 	if message == "" {
 		logError(MissingMessageError, "No message in request")
-		errs = append(errs, MissingMessageError)
+		errs = append(errs, MissingMessageError.Error())
 	}
 
 	// Subject can be empty
-	subject := r.FormValue(SubjectFormFieldName)
+	subject := strings.TrimSpace(r.FormValue(SubjectFormFieldName))
 
 	toUser, err := crypto.FindUserWithId(userId)
 	if err != nil {
 		logError(err, "Could not find user with Id "+userId)
-		errs = append(errs, err)
+		errs = append(errs, err.Error())
 	}
 
-	err = toUser.EncryptMessage(message, subject, sender.Id())
-	if err != nil {
-		logError(err, "Error occured when encrypting message for user")
-		errs = append(errs, err)
+	if len(errs) == 0 {
+		err = toUser.EncryptMessage(message, subject, sender.Id())
+		if err != nil {
+			logError(err, "Error occured when encrypting message for user")
+			errs = append(errs, err.Error())
+		}
 	}
 
 	// If len(errors) == 0, it would mean things worked successfully
 	err = json.NewEncoder(w).Encode(&struct {
-		Errors []error `json:"errors"`
+		Errors []string `json:"errors"`
 	}{
 		Errors: errs,
 	})
