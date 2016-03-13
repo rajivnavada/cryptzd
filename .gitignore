@@ -1,2 +1,4 @@
 *.swp
 cryptz
+cert.pem
+key.pem

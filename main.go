@@ -56,7 +56,12 @@ func main() {
 	addr := "127.0.0.1:" + port
 
 	println("Will start http server at:", addr)
-	if err := http.ListenAndServe(addr, router); err != nil {
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: router,
+	}
+	if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
 		panic(err)
 	}
 }
