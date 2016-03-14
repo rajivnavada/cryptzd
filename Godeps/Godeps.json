@@ -30,6 +30,19 @@
 			"Rev": "e7da8edaa52631091740908acaf2c2d4c9b3ce90"
 		},
 		{
+			"ImportPath": "gopkg.in/alexcesaro/quotedprintable.v3",
+			"Rev": "2caba252f4dc53eaf6b553000885530023f54623"
+		},
+		{
+			"ImportPath": "gopkg.in/check.v1",
+			"Rev": "4f90aeace3a26ad7021961c297b22c42160c7b25"
+		},
+		{
+			"ImportPath": "gopkg.in/gomail.v2",
+			"Comment": "2.0.0-15-g5ceb8e6",
+			"Rev": "5ceb8e65415e45e1262fb385212b8193b55c0f99"
+		},
+		{
 			"ImportPath": "gopkg.in/mgo.v2",
 			"Comment": "r2016.02.04",
 			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
@@ -48,6 +61,10 @@
 			"ImportPath": "gopkg.in/mgo.v2/internal/scram",
 			"Comment": "r2016.02.04",
 			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "a83829b6f1293c91addabc89d0571c246397bbf4"
 		}
 	]
 }
