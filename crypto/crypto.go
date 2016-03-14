@@ -676,7 +676,7 @@ func (uc *userCollection) loadFromDataStore() error {
 	if uc.hasData {
 		return nil
 	}
-	if err := sess.FindAll(&uc.users, uc.pageLength, uc.currentPage, bson.M{"isactive": true}, USER_COLLECTION_NAME); err != nil {
+	if err := sess.FindAll(&uc.users, uc.pageLength, uc.currentPage, bson.M{"isactive": true}, USER_COLLECTION_NAME, "-createdat"); err != nil {
 		return err
 	}
 
@@ -833,22 +833,6 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 			bu.CreatedAt = time.Now().UTC()
 		}
 		bu.UpdatedAt = time.Now().UTC()
-		//		// We need to detect if the key already exists in the user's list of keys
-		//		keyExists := false
-		//		if bu.Keys == nil {
-		//			bu.Keys = make([]string, 0)
-		//		} else {
-		//			for _, fpr := range bu.Keys {
-		//				if fpr == bk.Fingerprint {
-		//					keyExists = true
-		//					break
-		//				}
-		//			}
-		//		}
-		//		// Add the key if necessary
-		//		if !keyExists {
-		//			bu.Keys = append(bu.Keys, bk.Fingerprint)
-		//		}
 		// Save and done
 		if err := bu.Save(sess); err != nil {
 			return nil, nil, err

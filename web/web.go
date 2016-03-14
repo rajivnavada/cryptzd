@@ -160,6 +160,8 @@ func Activation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	startTime := time.Now().UTC()
+
 	// Extract token
 	vars := mux.Vars(r)
 	tokenStr := vars["token"]
@@ -197,6 +199,21 @@ func Activation(w http.ResponseWriter, r *http.Request) {
 
 	if err = currentUser.Activate(); !assertErrorIsNil(w, err, "Error activating user") {
 		return
+	}
+
+	// If the user was newly activated we need to broadcast it to others
+	if currentUser.ActivatedAt().After(startTime) {
+		H.broadcastUser <- messagesTemplateExtensions{
+			Session:              nil,
+			Messages:             nil,
+			Users:                nil,
+			CurrentUser:          currentUser,
+			FormActionName:       buildUrl(r, IndexURL, ""),
+			UserIdFormFieldName:  UserIdFormFieldName,
+			SubjectFormFieldName: SubjectFormFieldName,
+			MessageFormFieldName: MessageFormFieldName,
+			WebSocketURL:         "",
+		}
 	}
 
 	http.Redirect(w, r, IndexURL, http.StatusSeeOther)
@@ -271,16 +288,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	templateDefs := newTemplateArgs()
 	templateDefs.ShowHeader = false
-	templateDefs.Extensions = &struct {
-		Session              *SessionObject
-		Messages             []crypto.Message
-		Users                []crypto.User
-		FormActionName       string
-		UserIdFormFieldName  string
-		SubjectFormFieldName string
-		MessageFormFieldName string
-		WebSocketURL         string
-	}{
+	templateDefs.Extensions = &messagesTemplateExtensions{
 		Session:              sess,
 		Messages:             mc,
 		Users:                uc,
@@ -339,7 +347,7 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 			logError(err, "Error occured when encrypting message for user")
 			errs = append(errs, err.Error())
 		} else {
-			H.broadcast <- encryptedMessage
+			H.broadcastMessage <- encryptedMessage
 		}
 	}
 

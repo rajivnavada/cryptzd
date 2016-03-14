@@ -1,9 +1,27 @@
 package web
 
 import (
+	"cryptz/crypto"
 	"html/template"
 	textTemplate "text/template"
 )
+
+type messagesTemplateExtensions struct {
+	Session              *SessionObject
+	Messages             []crypto.Message
+	Users                []crypto.User
+	CurrentUser          crypto.User
+	FormActionName       string
+	UserIdFormFieldName  string
+	SubjectFormFieldName string
+	MessageFormFieldName string
+	WebSocketURL         string
+}
+
+func (mte messagesTemplateExtensions) SetCurrentUser(user crypto.User) *messagesTemplateExtensions {
+	mte.CurrentUser = user
+	return &mte
+}
 
 var baseTemplateHtml = `<!doctype html>
 <html>
@@ -207,42 +225,9 @@ a:focus {
 			</div>
 			<div class="link-content" id="users">
 				{{ range $index, $user := .Users }}
-					<div>
-						<div class="media">
-							<div class="media-left">
-								<p class="thumbnail">
-									<img class="media-object" src="{{ $user.ImageURL }}" alt="">
-								</p>
-							</div>
-							<div class="media-body">
-								<h4 class="media-heading">
-									{{ $user.Name }}
-									{{ if $.Session.IsCurrentUser $user.Id }}
-										&lt;-- That's you!
-									{{ end }}
-								</h4>
-								<p class="email">{{ $user.Email }}</p>
-								<a class="send-message-link" data-userid="{{ $user.Id }}">Send Message</a>
-							</div>
-						</div>
-						<div class="form message-form hidden">
-							<form method="POST" action="{{ $.FormActionName }}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
-								<input type="hidden" name="{{ $.UserIdFormFieldName  }}" value="{{ $user.Id }}">
-								<div class="alert hidden"></div>
-								<div class="form-group">
-									<label for="send-message-form-subject-{{ $user.Id }}">Subject</label>
-									<input class="form-control" type="text" id="send-message-form-subject-{{ $user.Id }}" name="subject" placeholder="Sending you a cryptz message">
-								</div>
-								<div class="form-group">
-									<label for="send-message-form-message-{{ $user.Id }}">Enter your message below</label>
-									<textarea class="form-control" rows="5" id="send-message-form-message-{{ $user.Id }}" name="message" placeholder="Lorem Ipsum ..."></textarea>
-								</div>
-								<div class="form-group rtxt">
-									<button class="btn btn-default" type="submit">Send Message</button>
-								</div>
-							</form>
-						</div>
-					</div>
+					{{ with $currentUser := $.SetCurrentUser $user }}
+						{{ template "User" $currentUser }}
+					{{ end }}
 				{{ end }}
 			</div>
 		</div>
@@ -341,12 +326,29 @@ $(function () {
 	};
 	wsConn.onmessage = function (e) {
 		console.log("Message received");
-		$messages.
-			find('.no-messages-header').
-				remove().
-			end().
-			prepend(e.data);
+		var $data = $(e.data);
+		var curId = $data.attr('id');
+		if ($data.is('.message')) {
+			$messages.
+				find('.no-messages-header').
+					remove().
+				end().
+				prepend($data);
+
+			// If we can notify try to notify
+			if (Notification.permission !== "denied") {
+				var n = new Notification("You're received a new message");
+			}
+		} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
+			$users.prepend($data);
+		}
 	};
+
+	if (Notification.permission !== "denied" && Notification.permission !== "granted") {
+		Notification.requestPermission(function (perm) {
+			console.log("Permission: " + perm);
+		});
+	}
 });
 </script>
 {{ end }}
@@ -356,7 +358,7 @@ var messagesTemplate *template.Template
 
 var messageTemplateHtml = `
 {{ define "Message" }}
-<div class="media">
+<div class="media message">
 	<div class="media-left">
 		<p class="thumbnail">
 			<img class="media-object" src="{{ .Sender.ImageURL }}" alt="">
@@ -372,6 +374,49 @@ var messageTemplateHtml = `
 `
 
 var messageTemplate *template.Template
+
+var userTemplateHtml = `
+{{ define "User" }}
+<div class="user" id="user-{{ .CurrentUser.Id }}">
+	<div class="media">
+		<div class="media-left">
+			<p class="thumbnail">
+				<img class="media-object" src="{{ .CurrentUser.ImageURL }}" alt="">
+			</p>
+		</div>
+		<div class="media-body">
+			<h4 class="media-heading">
+				{{ .CurrentUser.Name }}
+				{{ if .Session.IsCurrentUser .CurrentUser.Id }}
+					&lt;-- That's you!
+				{{ end }}
+			</h4>
+			<p class="email">{{ .CurrentUser.Email }}</p>
+			<a class="send-message-link" data-userid="{{ .CurrentUser.Id }}">Send Message</a>
+		</div>
+	</div>
+	<div class="form message-form hidden">
+		<form method="POST" action="{{ .FormActionName }}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">
+			<input type="hidden" name="{{ .UserIdFormFieldName  }}" value="{{ .CurrentUser.Id }}">
+			<div class="alert hidden"></div>
+			<div class="form-group">
+				<label for="send-message-form-subject-{{ .CurrentUser.Id }}">Subject</label>
+				<input class="form-control" type="text" id="send-message-form-subject-{{ .CurrentUser.Id }}" name="subject" placeholder="Sending you a cryptz message">
+			</div>
+			<div class="form-group">
+				<label for="send-message-form-message-{{ .CurrentUser.Id }}">Enter your message below</label>
+				<textarea class="form-control" rows="5" id="send-message-form-message-{{ .CurrentUser.Id }}" name="message" placeholder="Lorem Ipsum ..."></textarea>
+			</div>
+			<div class="form-group rtxt">
+				<button class="btn btn-default" type="submit">Send Message</button>
+			</div>
+		</form>
+	</div>
+</div>
+{{ end }}
+`
+
+var userTemplate *template.Template
 
 func init() {
 	var err error
@@ -404,6 +449,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	messageTemplate, err = messagesTemplate.Parse(userTemplateHtml)
+	if err != nil {
+		panic(err)
+	}
 
 	messageTemplate, err = template.New("message").Parse(`{{ template "Message" . }}`)
 	if err != nil {
@@ -414,4 +463,12 @@ func init() {
 		panic(err)
 	}
 
+	userTemplate, err = template.New("user").Parse(`{{ template "User" . }}`)
+	if err != nil {
+		panic(err)
+	}
+	userTemplate, err = userTemplate.Parse(userTemplateHtml)
+	if err != nil {
+		panic(err)
+	}
 }

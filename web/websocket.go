@@ -37,8 +37,11 @@ type Hub struct {
 	// Registered connections.
 	connections map[fingerprint]*connection
 
-	// Inbound messages from the connections.
-	broadcast chan map[string]crypto.Message
+	// Channel to broadcast messages to connected users
+	broadcastMessage chan map[string]crypto.Message
+
+	// Channel to broadcast new user activations
+	broadcastUser chan messagesTemplateExtensions
 
 	// Register requests from the connections.
 	register chan *connection
@@ -48,10 +51,11 @@ type Hub struct {
 }
 
 var H = Hub{
-	broadcast:   make(chan map[string]crypto.Message),
-	register:    make(chan *connection),
-	unregister:  make(chan *connection),
-	connections: make(map[fingerprint]*connection),
+	broadcastMessage: make(chan map[string]crypto.Message),
+	broadcastUser:    make(chan messagesTemplateExtensions),
+	register:         make(chan *connection),
+	unregister:       make(chan *connection),
+	connections:      make(map[fingerprint]*connection),
 }
 
 // Run makes the hub ready to receive / broadcast connections
@@ -59,6 +63,12 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case c := <-h.register:
+			// If we are trying to register a connection for an existing fingerprint,
+			// close that connection first
+			if oldC, ok := h.connections[c.fingerprint]; ok {
+				delete(h.connections, c.fingerprint)
+				close(oldC.send)
+			}
 			h.connections[c.fingerprint] = c
 
 		case c := <-h.unregister:
@@ -67,7 +77,7 @@ func (h *Hub) Run() {
 				close(c.send)
 			}
 
-		case messages := <-h.broadcast:
+		case messages := <-h.broadcastMessage:
 			// m is a map of fingerprint to message
 			for k, m := range messages {
 				// For each key, find if we have an active connection
@@ -78,8 +88,25 @@ func (h *Hub) Run() {
 					if err := messageTemplate.Execute(buf, m); err != nil {
 						logError(err, "Error constructing message HTML")
 					} else {
-						c.send <- buf.Bytes()
+						select {
+						case c.send <- buf.Bytes():
+						default:
+							close(c.send)
+							delete(h.connections, fingerprint(k))
+						}
 					}
+				}
+			}
+
+		case user := <-h.broadcastUser:
+			// Prepare a bytes buffer to collect the output
+			buf := &bytes.Buffer{}
+			// If there is an active connection, send message
+			if err := userTemplate.Execute(buf, user); err != nil {
+				logError(err, "Error constructing user HTML")
+			} else {
+				for _, c := range h.connections {
+					c.send <- buf.Bytes()
 				}
 			}
 		}
