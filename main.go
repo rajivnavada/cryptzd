@@ -16,6 +16,7 @@ var (
 	mongoDbName             = flag.String("mongoDbName", "cryptz", "MongoDB database name")
 	appEmail                = flag.String("appEmail", "zocmyworld@gmail.com", "Email address to use for sender for this app")
 	appEmailPasswordEnvName = flag.String("appPasswordEnvName", "MAILPASS", "Name of the environment variable that contains the password for this app email sender")
+	debug                   = flag.Bool("debug", false, "Turn on debug mode")
 )
 
 func main() {
@@ -25,14 +26,16 @@ func main() {
 	crypto.InitService(*mongoHost, *mongoDbName)
 	mail.InitService(*appEmail, os.Getenv(*appEmailPasswordEnvName))
 
-	// TODO: start the connection hub for websocket stuff
+	// start the connection hub for websocket stuff
 	go web.H.Run()
 	defer web.H.Close()
 
 	router := web.Router()
 	addr := *host + ":" + *port
 
-	println("Will start http server at:", addr)
+	if *debug {
+		println("Will start http server at:", addr)
+	}
 
 	server := &http.Server{
 		Addr:    addr,

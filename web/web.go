@@ -114,8 +114,9 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send email
-	mail.M.Send(so.UserEmail, so.UserName, activationMessage)
-	logIt(activationMessage)
+	if !mail.M.Send(so.UserEmail, so.UserName, activationMessage) {
+		logIt("Could not send email", activationMessage)
+	}
 
 	// Redirect to need activation message page
 	http.Redirect(w, r, buildUrl(r, PendingActivationURL, ""), http.StatusSeeOther)
