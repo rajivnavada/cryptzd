@@ -2,6 +2,8 @@ CC = clang
 BIN = cryptz
 HOST = 127.0.0.1
 PORT = 8000
+MONGO_HOST = 127.0.0.1
+MONGO_DB_NAME = cryptz
 
 all: $(BIN)
 
@@ -26,5 +28,5 @@ clean:
 	rm -f $(BIN)
 
 web: clean all cert.pem
-	exec ./$(BIN) -host $(HOST) -port $(PORT)
+	exec ./$(BIN) -host $(HOST) -port $(PORT) -mongoHost $(MONGO_HOST) -mongoDbName $(MONGO_DB_NAME)
 

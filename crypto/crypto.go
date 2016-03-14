@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	MONGO_HOST_NAME         string = "127.0.0.1"
-	MONGO_DB_NAME           string = "cryptz"
 	KEY_COLLECTION_NAME     string = "keys"
 	USER_COLLECTION_NAME    string = "users"
 	MESSAGE_COLLECTION_NAME string = "messages"
 )
 
 var (
+	MongoHostName                   = "127.0.0.1"
+	MongoDbName                     = "cryptz"
 	NotImplementedError             = errors.New("Not implemented")
 	InvalidKeyError                 = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
 	MissingEmailError               = errors.New("Public key must contain a valid email address.")
@@ -128,7 +128,7 @@ type UserCollection interface {
 //----------------------------------------
 
 func newSession() mongo.Session {
-	return mongo.NewSession(MONGO_HOST_NAME, MONGO_DB_NAME)
+	return mongo.NewSession(MongoHostName, MongoDbName)
 }
 
 type reloadable interface {
@@ -867,9 +867,19 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 // INIT
 //----------------------------------------
 
-func init() {
+func InitService(mongoHost, mongoDbName string) {
+	// Check args
+	if mongoHost == "" {
+		mongoHost = "127.0.0.1"
+	}
+	if mongoDbName == "" {
+		mongoDbName = "cryptz"
+	}
+	// Get global vars
+	MongoHostName = mongoHost
+	MongoDbName = mongoDbName
 	// Make sure we have the right indexes on the data
-	indexer := mongo.NewIndexer(MONGO_HOST_NAME, MONGO_DB_NAME)
+	indexer := mongo.NewIndexer(MongoHostName, MongoDbName)
 	defer indexer.Close()
 
 	if err := indexer.AddUniqueIndex(USER_COLLECTION_NAME, "email"); err != nil {
