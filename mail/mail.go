@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"crypto/tls"
 	"fmt"
 	"gopkg.in/gomail.v2"
 )
@@ -9,9 +8,7 @@ import (
 var serviceInited = false
 
 func newGmailMailer(username, password string) *gomail.Dialer {
-	d := gomail.NewDialer("smtp.gmail.com", 587, username, password)
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-	return d
+	return gomail.NewDialer("smtp.gmail.com", 587, username, password)
 }
 
 type Mailer interface {
