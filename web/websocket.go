@@ -91,8 +91,8 @@ func (h *Hub) Run() {
 						select {
 						case c.send <- buf.Bytes():
 						default:
-							close(c.send)
 							delete(h.connections, fingerprint(k))
+							close(c.send)
 						}
 					}
 				}

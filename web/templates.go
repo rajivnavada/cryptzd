@@ -345,7 +345,7 @@ $(function () {
 
 			// If we can notify try to notify
 			if (Notification.permission !== "denied") {
-				var n = new Notification("You're received a new message");
+				var n = new Notification("You've received a new message");
 			}
 
 		} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
