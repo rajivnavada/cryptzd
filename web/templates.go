@@ -368,8 +368,7 @@ $(function () {
 	}
 });
 </script>
-{{ end }}
-`
+{{ end }}`
 
 var messagesTemplate *template.Template
 
@@ -387,8 +386,7 @@ var messageTemplateHtml = `
 	</div>
 	<pre>{{ .Text }}</pre>
 </div>
-{{ end }}
-`
+{{ end }}`
 
 var messageTemplate *template.Template
 
@@ -430,8 +428,7 @@ var userTemplateHtml = `
 		</form>
 	</div>
 </div>
-{{ end }}
-`
+{{ end }}`
 
 var userTemplate *template.Template
 
