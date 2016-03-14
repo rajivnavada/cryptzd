@@ -275,7 +275,10 @@ $(function () {
 		$messageForms.addClass('hidden');
 
 		$this.
-			removeClass('hidden disabled').
+			removeClass('hidden').
+			find('form').
+				removeClass('disabled').
+			end().
 			find('button').
 				removeClass('hidden disabled').
 			end().
