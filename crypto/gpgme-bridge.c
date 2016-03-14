@@ -208,6 +208,7 @@ char *encrypt (const char *fingerprint, const char *message)
     // Extract the cipher text from cipher object
     size_t cipher_len = 0;
     ret = gpgme_data_release_and_get_mem (cipher, &cipher_len);
+    ret[cipher_len] = '\0';
     // At this point cipher should already be released and no further release is required
     cipher = NULL;
 

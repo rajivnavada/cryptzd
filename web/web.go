@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"cryptz/crypto"
+	"cryptz/mail"
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
@@ -112,7 +113,8 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: send email
+	// Send email
+	mail.M.Send(so.UserEmail, so.UserName, activationMessage)
 	logIt(activationMessage)
 
 	// Redirect to need activation message page

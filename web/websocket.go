@@ -20,12 +20,12 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	maxMessageSize = 4096
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  maxMessageSize * 2,
+	WriteBufferSize: maxMessageSize * 2,
 }
 
 type fingerprint string
@@ -105,8 +105,13 @@ func (h *Hub) Run() {
 			if err := userTemplate.Execute(buf, user); err != nil {
 				logError(err, "Error constructing user HTML")
 			} else {
-				for _, c := range h.connections {
-					c.send <- buf.Bytes()
+				for k, c := range h.connections {
+					select {
+					case c.send <- buf.Bytes():
+					default:
+						delete(h.connections, fingerprint(k))
+						close(c.send)
+					}
 				}
 			}
 		}
