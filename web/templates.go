@@ -242,9 +242,71 @@ $(function () {
 	var $links = $('.left-sidebar .links .link');
 	var $linkContents = $('.main-content .link-content');
 	var $users = $('#users');
-	var $userMedia = $('#users').find('.media');
-	var $messageForms = $users.find('.form');
 	var $messages = $('#messages');
+
+	function wireUserMedia($elements) {
+
+		var $messageForms = $elements.siblings('.form');
+
+		$elements.click(function (e) {
+			e.preventDefault();
+
+			var $this = $(this).siblings('.form');
+			if (!$this.hasClass('hidden')) {
+				$this.addClass('hidden');
+				return false;
+			}
+
+			$messageForms.addClass('hidden');
+			$this.
+				removeClass('hidden').
+				find('form').
+					removeClass('disabled').
+				end().
+				find('button').
+					removeClass('hidden disabled').
+				end().
+				find('.alert').
+					removeClass('alert-success alert-danger').
+					addClass('hidden').
+				end().
+				find('[type="text"], textarea').
+					val('').
+				end().
+				find('[type="text"]').
+					focus();
+
+			return false;
+		});
+
+		$messageForms.
+			find('form').
+				submit(function (e) {
+					var $this = $(this);
+					if ($this.hasClass('disabled')) {
+						return false;
+					}
+
+					$this.addClass('disabled').find('[type="submit"]').addClass('disabled');
+
+					var action = $.trim($this.attr('action'));
+					var data = $this.serialize();
+
+					$.post(action, $this.serialize(), function (data) {
+						var o = $.parseJSON(data);
+						if (o.errors && o.errors.length > 0) {
+							console.error(o.errors);
+							$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger');
+						} else {
+							$this.find('.alert').html("Message sent successfully").addClass('alert-success').removeClass('hidden');
+						}
+					}).fail(function () {
+						$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger error');
+					});
+
+					return false;
+		});
+	}
 
 	$links.click(function (e) {
 		var $this = $(this);
@@ -263,65 +325,7 @@ $(function () {
 		return false;
 	});
 
-	$userMedia.click(function (e) {
-		e.preventDefault();
-
-		var $this = $(this).siblings('.form');
-		if (!$this.hasClass('hidden')) {
-			$this.addClass('hidden');
-			return false;
-		}
-
-		$messageForms.addClass('hidden');
-
-		$this.
-			removeClass('hidden').
-			find('form').
-				removeClass('disabled').
-			end().
-			find('button').
-				removeClass('hidden disabled').
-			end().
-			find('.alert').
-				removeClass('alert-success alert-danger').
-				addClass('hidden').
-			end().
-			find('[type="text"], textarea').
-				val('').
-			end().
-			find('[type="text"]').
-				focus();
-
-		return false;
-	});
-
-	$messageForms.
-		find('form').
-			submit(function (e) {
-				var $this = $(this);
-				if ($this.hasClass('disabled')) {
-					return false;
-				}
-
-				$this.addClass('disabled').find('[type="submit"]').addClass('disabled');
-
-				var action = $.trim($this.attr('action'));
-				var data = $this.serialize();
-
-				$.post(action, $this.serialize(), function (data) {
-					var o = $.parseJSON(data);
-					if (o.errors && o.errors.length > 0) {
-						console.error(o.errors);
-						$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger');
-					} else {
-						$this.find('.alert').html("Message sent successfully").addClass('alert-success').removeClass('hidden');
-					}
-				}).fail(function () {
-					$this.find('.alert').html("There were some errors. Check console for details.").removeClass("hidden").addClass('alert-danger error');
-				});
-
-				return false;
-	});
+	wireUserMedia($users.find('.media'));
 
 	var wsConn = new WebSocket("{{ .WebSocketURL }}");
 	wsConn.onclose = function (e) {
@@ -331,6 +335,7 @@ $(function () {
 		console.log("Message received");
 		var $data = $(e.data);
 		var curId = $data.attr('id');
+
 		if ($data.is('.message')) {
 			$messages.
 				find('.no-messages-header').
@@ -342,11 +347,20 @@ $(function () {
 			if (Notification.permission !== "denied") {
 				var n = new Notification("You're received a new message");
 			}
+
 		} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
 			$users.prepend($data);
+			wireUserMedia($("#" + curId).find('.media'));
 		}
 	};
 
+	// Catch onbeforeunload
+	window.onbeforeunload = function (e) {
+		console.log("Closing WS connection");
+		wsConn.close(1000);
+	};
+
+	// Ask for notification permission
 	if (Notification.permission !== "denied" && Notification.permission !== "granted") {
 		Notification.requestPermission(function (perm) {
 			console.log("Permission: " + perm);
