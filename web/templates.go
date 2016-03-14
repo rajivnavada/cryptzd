@@ -335,6 +335,9 @@ $(function () {
 		console.log("Message received");
 		var $data = $(e.data);
 		var curId = $data.attr('id');
+		var notification;
+		var subject;
+		var title;
 
 		if ($data.is('.message')) {
 			$messages.
@@ -345,7 +348,9 @@ $(function () {
 
 			// If we can notify try to notify
 			if (Notification.permission !== "denied") {
-				var n = new Notification("You've received a new message");
+				subject = $data.find('.media-heading').text();
+				title = 'New crypt from: ' + $data.find('.email').text();
+				notification = new Notification(title, { body: subject });
 			}
 
 		} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
