@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cryptz/crypto"
 	"github.com/gorilla/websocket"
+	"sync"
 	"time"
 )
 
@@ -60,6 +61,8 @@ var H = Hub{
 
 // Run makes the hub ready to receive / broadcast connections
 func (h *Hub) Run() {
+	// NOTE: the reason the delete's don't need to be guarded by a mutex here is because each
+	//       'case' is handled synchronously.
 	for {
 		select {
 		case c := <-h.register:
@@ -67,14 +70,14 @@ func (h *Hub) Run() {
 			// close that connection first
 			if oldC, ok := h.connections[c.fingerprint]; ok {
 				delete(h.connections, c.fingerprint)
-				close(oldC.send)
+				oldC.closeChan()
 			}
 			h.connections[c.fingerprint] = c
 
 		case c := <-h.unregister:
 			if _, ok := h.connections[c.fingerprint]; ok {
 				delete(h.connections, c.fingerprint)
-				close(c.send)
+				c.closeChan()
 			}
 
 		case messages := <-h.broadcastMessage:
@@ -92,7 +95,7 @@ func (h *Hub) Run() {
 						case c.send <- buf.Bytes():
 						default:
 							delete(h.connections, fingerprint(k))
-							close(c.send)
+							c.closeChan()
 						}
 					}
 				}
@@ -110,7 +113,7 @@ func (h *Hub) Run() {
 					case c.send <- buf.Bytes():
 					default:
 						delete(h.connections, fingerprint(k))
-						close(c.send)
+						c.closeChan()
 					}
 				}
 			}
@@ -120,8 +123,16 @@ func (h *Hub) Run() {
 
 // Close closes all open connections and destroys the hub
 func (h *Hub) Close() {
-	// TODO: closes all open connections
-	// Loops over all connenctions and writes a close message to them
+	// closes all open connections
+	// Loops over all connenctions and closes connections
+	for _, c := range h.connections {
+		h.unregister <- c
+	}
+	// Also closes the broadcast channels
+	close(h.broadcastMessage)
+	close(h.broadcastUser)
+	close(h.register)
+	close(h.unregister)
 }
 
 // connection is an middleman between the websocket connection and the hub.
@@ -129,8 +140,12 @@ type connection struct {
 	// The websocket connection.
 	ws *websocket.Conn
 
+	// Protects the send channel
+	lock sync.Locker
 	// Buffered channel of outbound messages.
 	send chan []byte
+	// Records if this connection is closed
+	closed bool
 
 	// userId of the user this connection belongs to
 	userId userId
@@ -139,11 +154,24 @@ type connection struct {
 	fingerprint fingerprint
 }
 
+func (c *connection) closeChan() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.closed {
+		return
+	}
+	c.ws.Close()
+	close(c.send)
+	c.closed = true
+}
+
 // readPump pumps messages from the websocket connection to the hub.
 func (c *connection) readPump() {
 	defer func() {
+		// unregister should also close the channel
+		// no need to call closeChan here
 		H.unregister <- c
-		c.ws.Close()
 	}()
 
 	c.ws.SetReadLimit(maxMessageSize)
@@ -172,6 +200,8 @@ func (c *connection) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
+		// We just close the websocket connection. Then in the readPump, the close is
+		// detected and that exits as well
 		c.ws.Close()
 	}()
 
@@ -191,5 +221,15 @@ func (c *connection) writePump() {
 				return
 			}
 		}
+	}
+}
+
+func newConnection(wsConn *websocket.Conn, uid userId, fpr fingerprint) *connection {
+	return &connection{
+		lock:        &sync.Mutex{},
+		send:        make(chan []byte, 256),
+		ws:          wsConn,
+		userId:      uid,
+		fingerprint: fpr,
 	}
 }

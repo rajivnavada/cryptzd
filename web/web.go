@@ -253,12 +253,7 @@ func Websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := &connection{
-		send:        make(chan []byte, 256),
-		ws:          wsConn,
-		userId:      userId(uid),
-		fingerprint: fingerprint(sess.KeyFingerprint),
-	}
+	c := newConnection(wsConn, userId(uid), fingerprint(sess.KeyFingerprint))
 	H.register <- c
 
 	go c.writePump()
