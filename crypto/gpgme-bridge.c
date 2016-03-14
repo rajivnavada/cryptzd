@@ -1,6 +1,8 @@
 #include "gpgme-bridge.h"
 
 
+// Minimum version of GPGME we'll accept
+static const char *GPGME_MIN_VERSION = "1.6.0";
 static const int COPY = 1;
 
 

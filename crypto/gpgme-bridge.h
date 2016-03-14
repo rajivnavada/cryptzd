@@ -5,13 +5,13 @@
 #include <gpgme.h>
 #include <gpg-error.h>
 
-// Minimum version of GPGME we'll accept
-static const char *GPGME_MIN_VERSION = "1.6.0";
 
-static const int KEY_FINGERPRINT_LEN = 40;
-static const int KEY_USERNAME_LEN = 255;
-static const int KEY_USEREMAIL_LEN = 255;
-static const int KEY_USERCOMMENT_LEN = 255;
+enum {
+    KEY_FINGERPRINT_LEN = 40,
+    KEY_USERNAME_LEN = 255,
+    KEY_USEREMAIL_LEN = 255,
+    KEY_USERCOMMENT_LEN = 255
+};
 
 // +1 for the terminating 0
 typedef struct key_info {

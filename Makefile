@@ -1,5 +1,7 @@
 CC = clang
 BIN = cryptz
+HOST = 127.0.0.1
+PORT = 8000
 
 all: $(BIN)
 
@@ -24,5 +26,5 @@ clean:
 	rm -f $(BIN)
 
 web: clean all cert.pem
-	exec ./$(BIN)
+	exec ./$(BIN) -host $(HOST) -port $(PORT)
 
