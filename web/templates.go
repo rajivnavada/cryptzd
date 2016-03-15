@@ -40,10 +40,11 @@ var baseTemplateHtml = `<!doctype html>
 			.xlarge{font-size:5em;}
 			.ctxt{text-align:center;}
 			.rtxt{text-align:right;}
-			.btn{border-radius:0;}
+			.btn{border-radius:0;text-transform:uppercase;font-size:0.9em;padding:0.7em 12px;}
 			.tmargin{margin-top:2em;}
 			.hidden {display:none;}
-			.nav-tabs > li > a {border-radius:0;}
+			.nav-tabs > li > a{border-radius:0;}
+			pre{border-radius:0;}
 			textarea.form-control, input[type="text"] { border-radius: 0; }
 			textarea.form-control { resize: vertical; }
 		</style>
@@ -184,12 +185,10 @@ a:focus {
 .main-content .link-content { display: none; }
 .main-content .link-content.active { display: block; }
 .main-content .link-content .media { cursor: pointer; }
-.main-content .link-content .media-left .thumbnail { width: 64px; }
+.main-content .link-content .media-left .thumbnail { width: 64px; border-radius: 0; margin-bottom: 0; }
 .main-content .link-content .media-heading { padding-top: 3px; }
 .main-content .link-content .media-body .email { color: #888; margin-bottom: 5px; }
 .main-content .link-content .form { padding: 20px; border: 1px solid #ccc; margin-top: 1em; }
-
-.media-left .thumbnail { margin-bottom: 0; }
 
 .link-content > div { padding: 1em 0; }
 
