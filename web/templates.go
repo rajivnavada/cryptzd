@@ -327,42 +327,71 @@ $(function () {
 
 	wireUserMedia($users.find('.media'));
 
-	var wsConn = new WebSocket("{{ .WebSocketURL }}");
-	wsConn.onclose = function (e) {
-		console.log("Connection closed!");
-	};
-	wsConn.onmessage = function (e) {
-		console.log("Message received");
-		var $data = $(e.data);
-		var curId = $data.attr('id');
-		var notification;
-		var subject;
-		var title;
+	var DEFAULT_RETRY_TIMEOUT = 1500;
+	var retryTimeout = DEFAULT_RETRY_TIMEOUT;
+	var wsConn;
 
-		if ($data.is('.message')) {
-			$messages.
-				find('.no-messages-header').
-					remove().
-				end().
-				prepend($data);
+	function doWS() {
 
-			// If we can notify try to notify
-			if (Notification.permission !== "denied") {
-				subject = $data.find('.media-heading').text();
-				title = 'New crypt from: ' + $data.find('.email').text();
-				notification = new Notification(title, { body: subject });
+		wsConn = new WebSocket("{{ .WebSocketURL }}");
+
+		wsConn.onopen = function (e) {
+			console.log("Connected and ready to receive");
+			// Reset the retryTimeout to original value.
+			retryTimeout = DEFAULT_RETRY_TIMEOUT;
+		};
+
+		wsConn.onclose = function (e) {
+			console.log("Connection closed!");
+			if (!retryTimeout) return;
+			console.log("Will reconnect in " + retryTimeout + "ms");
+			setTimeout(doWS, retryTimeout);
+			retryTimeout = 2 * retryTimeout;
+		};
+
+		wsConn.onmessage = function (e) {
+			var $data = $(e.data);
+			var curId = $data.attr('id');
+			var notification;
+			var subject;
+			var title;
+
+			console.log("Message received");
+
+			if ($data.is('.message')) {
+				$messages.
+					find('.no-messages-header').
+						remove().
+					end().
+					prepend($data);
+
+				// If we can notify try to notify
+				if (Notification.permission !== "denied") {
+					subject = $data.find('.media-heading').text();
+					title = 'New crypt from: ' + $data.find('.email').text();
+					notification = new Notification(title, { body: subject });
+				}
+
+			} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
+
+				$users.prepend($data);
+				wireUserMedia($("#" + curId).find('.media'));
+
 			}
+		};
+	}
 
-		} else if ($data.is('.user') && curId && $("#" + curId).size() === 0) {
-			$users.prepend($data);
-			wireUserMedia($("#" + curId).find('.media'));
-		}
-	};
-
+	// Start WS
+	doWS();
+	
 	// Catch onbeforeunload
 	window.onbeforeunload = function (e) {
 		console.log("Closing WS connection");
-		wsConn.close(1000);
+		retryTimeout = 0;
+		if (wsConn) {
+			wsConn.close(1000);
+			wsConn = null;
+		}
 	};
 
 	// Ask for notification permission
