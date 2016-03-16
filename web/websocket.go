@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"cryptz/crypto"
+	"errors"
 	"github.com/gorilla/websocket"
 	"sync"
 	"time"
@@ -23,6 +24,8 @@ const (
 	// Maximum message size allowed from peer.
 	maxMessageSize = 4096
 )
+
+var DuplicateFingerprintError = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  maxMessageSize * 2,
@@ -69,6 +72,7 @@ func (h *Hub) Run() {
 			// If we are trying to register a connection for an existing fingerprint,
 			// close that connection first
 			if oldC, ok := h.connections[c.fingerprint]; ok {
+				logError(DuplicateFingerprintError, "Error maintaining connection with duplicate key")
 				delete(h.connections, c.fingerprint)
 				oldC.closeChan()
 			}

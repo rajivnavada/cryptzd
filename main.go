@@ -1,10 +1,12 @@
 package main
 
 import (
+	"crypto/x509"
 	"cryptz/crypto"
 	"cryptz/mail"
 	"cryptz/web"
 	"flag"
+	"io/ioutil"
 	"net/http"
 	"os"
 )
@@ -17,10 +19,38 @@ var (
 	appEmail                = flag.String("appEmail", "zocmyworld@gmail.com", "Email address to use for sender for this app")
 	appEmailPasswordEnvName = flag.String("appPasswordEnvName", "MAILPASS", "Name of the environment variable that contains the password for this app email sender")
 	debug                   = flag.Bool("debug", false, "Turn on debug mode")
+	receiver                = flag.Bool("receiver", false, "Start in receiver mode")
+	receiverKey             = flag.String("receiverKey", "", "Fingerprint of key to use in receiver mode")
 )
+
+func startReceiver() {
+	certs := x509.NewCertPool()
+	// TODO: build full.pem from cert.pem + key.pem
+	// TODO: make pem files a configurable value
+	for _, fname := range []string{"full.pem"} {
+		if barr, err := ioutil.ReadFile(fname); err != nil {
+			panic(err)
+		} else if !certs.AppendCertsFromPEM(barr) {
+			println("Could not parse cert from PEM")
+			return
+		}
+	}
+
+	// Start a websocket client and hopefully it will receive messages
+	// TODO: make host a configurable value
+	client := web.NewWSClient("wss://127.0.0.1:8000/ws/"+*receiverKey, "https://127.0.0.1:8000", certs)
+	if err := client.Run(); err != nil {
+		panic(err)
+	}
+}
 
 func main() {
 	flag.Parse()
+
+	if *receiver {
+		startReceiver()
+		return
+	}
 
 	// Check mongo service
 	crypto.InitService(*mongoHost, *mongoDbName)

@@ -260,6 +260,32 @@ func Websocket(w http.ResponseWriter, r *http.Request) {
 	c.readPump()
 }
 
+func WebsocketWithFingerprint(w http.ResponseWriter, r *http.Request) {
+	// Get the key fingerprint
+	vars := mux.Vars(r)
+	fpr := vars["fingerprint"]
+
+	key, err := crypto.FindKeyWithFingerprint(fpr)
+	if !assertErrorIsNil(w, err, "Error finding key with fingerprint "+fpr) {
+		return
+	}
+
+	// Get the userId from the key
+	uid := key.User().Id()
+
+	// Upgrades the connection to a websocket connection and registers the user in a users map
+	wsConn, err := upgrader.Upgrade(w, r, nil)
+	if !assertErrorIsNil(w, err, "Error upgrading connection to websocket") {
+		return
+	}
+
+	c := newConnection(wsConn, userId(uid), fingerprint(fpr))
+	H.register <- c
+
+	go c.writePump()
+	c.readPump()
+}
+
 func GetMessages(w http.ResponseWriter, r *http.Request) {
 	// Checks if the user is logged in or not. If not logged in redirect to login page
 	sess := mustBeAuthenticated(w, r)
@@ -372,6 +398,7 @@ func Router() http.Handler {
 	r.HandleFunc(PendingActivationURL, NeedActivationMessage).Methods("GET")
 	r.HandleFunc("/activate/{token}", Activation).Methods("GET")
 	r.HandleFunc("/logout", Logout).Methods("GET")
+	r.HandleFunc("/ws/{fingerprint}", WebsocketWithFingerprint)
 	r.HandleFunc("/ws", Websocket)
 
 	return r

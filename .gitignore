@@ -2,3 +2,4 @@
 cryptz
 cert.pem
 key.pem
+*.pem

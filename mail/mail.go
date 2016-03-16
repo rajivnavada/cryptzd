@@ -26,6 +26,14 @@ var M = mailer{
 }
 
 func (m mailer) Send(name, email, message string) bool {
+	if m.password == "" {
+		println("----------------------------------------")
+		println("New mail to be sent to: " + name + " (" + email + ")")
+		println(message)
+		println("----------------------------------------")
+		return true
+	}
+
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", fmt.Sprintf("Crypt Keeper <%s>", m.username))
 	msg.SetHeader("To", fmt.Sprintf("%s <%s>", name, email))
