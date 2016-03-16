@@ -90,9 +90,17 @@ func (h *Hub) Run() {
 				// For each key, find if we have an active connection
 				if c, ok := h.connections[fingerprint(k)]; ok {
 					// Prepare a bytes buffer to collect the output
-					buf := &bytes.Buffer{}
+					var buf *bytes.Buffer
+					var err error
+					if c.isCLI {
+						buf = bytes.NewBufferString(m.Text())
+						err = nil
+					} else {
+						buf = &bytes.Buffer{}
+						err = messageTemplate.Execute(buf, m)
+					}
 					// If there is an active connection, send message
-					if err := messageTemplate.Execute(buf, m); err != nil {
+					if err != nil {
 						logError(err, "Error constructing message HTML")
 					} else {
 						select {
@@ -156,6 +164,8 @@ type connection struct {
 
 	// fingerprint of the key used in this connection
 	fingerprint fingerprint
+
+	isCLI bool
 }
 
 func (c *connection) closeChan() {
@@ -228,12 +238,13 @@ func (c *connection) writePump() {
 	}
 }
 
-func newConnection(wsConn *websocket.Conn, uid userId, fpr fingerprint) *connection {
+func newConnection(wsConn *websocket.Conn, uid userId, fpr fingerprint, isCLI bool) *connection {
 	return &connection{
 		lock:        &sync.Mutex{},
 		send:        make(chan []byte, 256),
 		ws:          wsConn,
 		userId:      uid,
 		fingerprint: fpr,
+		isCLI:       isCLI,
 	}
 }

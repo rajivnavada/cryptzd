@@ -461,6 +461,8 @@ func (u *user) EncryptMessage(message, subject, sender string) (map[string]Messa
 		}
 	}
 
+	// TODO: Return an `EncryptionResult` object that can contain errors and result data
+	//       This way the caller can decide what is to be treated as an error.
 	if numErr > 0 {
 		return nil, errors[0]
 	}

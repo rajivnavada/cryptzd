@@ -45,7 +45,10 @@ func (c *client) Run() error {
 		}
 		if messageType == websocket.TextMessage {
 			// decrypt the message before displaying
-			result = crypto.DecryptMessage(string(p))
+			result, err := crypto.DecryptMessage(string(p))
+			if err != nil {
+				return err
+			}
 			println(">>> " + result)
 			println("")
 		}
