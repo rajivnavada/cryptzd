@@ -3,6 +3,7 @@ package web
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"cryptz/crypto"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
@@ -19,12 +20,13 @@ type client struct {
 
 func (c *client) Run() error {
 	dialer := &websocket.Dialer{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			RootCAs:            c.CertPool,
+		},
 	}
-
-	dialer.TLSClientConfig.RootCAs = c.CertPool
 
 	header := http.Header{
 		"Origin": {c.Origin},
@@ -42,8 +44,9 @@ func (c *client) Run() error {
 			return err
 		}
 		if messageType == websocket.TextMessage {
-			// TODO: decrypt the message before displaying
-			println(">>> " + string(p))
+			// decrypt the message before displaying
+			result = crypto.DecryptMessage(string(p))
+			println(">>> " + result)
 			println("")
 		}
 	}

@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -18,7 +17,6 @@ const (
 	KEY_COLLECTION_NAME     string = "keys"
 	USER_COLLECTION_NAME    string = "users"
 	MESSAGE_COLLECTION_NAME string = "messages"
-	END_MESSAGE_MARKER      string = "-----END PGP MESSAGE-----"
 )
 
 var (
@@ -27,12 +25,8 @@ var (
 	NotImplementedError             = errors.New("Not implemented")
 	InvalidKeyError                 = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
 	MissingEmailError               = errors.New("Public key must contain a valid email address.")
-	FailedEncryptionError           = errors.New("Failed to encrypt message.")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
 	StopIterationError              = errors.New("No more items to return")
-
-	importPublicKeyLock = &sync.Mutex{}
-	encryptLock         = &sync.Mutex{}
 )
 
 //----------------------------------------
@@ -206,36 +200,20 @@ func (bk *baseKey) Save(sess mongo.Session) error {
 
 func (bk *baseKey) Encrypt(msg string) (string, error) {
 	// Protect access to the C functions
-	encryptLock.Lock()
 	cipher, err := encryptMessage(msg, bk.Fingerprint)
-	encryptLock.Unlock()
 	if err != nil {
 		return "", err
 	}
-
-	//	// Clean up remaining bytes after end marker
-	//	splits := strings.SplitAfter(cipher, END_MESSAGE_MARKER)
-	//	if len(splits) > 1 {
-	//		cipher = splits[0]
-	//	}
 
 	return cipher, nil
 }
 
 func (bk *baseKey) EncryptMessage(s, subject, sender string) (Message, error) {
 	// Protect access to the C functions
-	encryptLock.Lock()
 	cipher, err := encryptMessage(s, bk.Fingerprint)
-	encryptLock.Unlock()
 	if err != nil {
 		return nil, err
 	}
-
-	//	// Clean up remaining bytes after end marker
-	//	splits := strings.SplitAfter(cipher, END_MESSAGE_MARKER)
-	//	if len(splits) > 1 {
-	//		cipher = splits[0]
-	//	}
 
 	m, err := newMessage(cipher, subject, sender, bk.Id.Hex())
 	if err != nil {
@@ -826,9 +804,7 @@ func ImportKeyAndUser(publicKey string) (Key, User, error) {
 	bu := &baseUser{}
 
 	// Protect access to the C function
-	importPublicKeyLock.Lock()
 	err := importPublicKey(publicKey, bk, bu)
-	importPublicKeyLock.Unlock()
 
 	if err != nil {
 		return nil, nil, err

@@ -226,6 +226,59 @@ free_resources_and_return:
 }
 
 
+char *decrypt (const char *encrypted_message)
+{
+    if (!encrypted_message)
+        return NULL;
+
+    gpgme_ctx_t ctx = get_context ();
+    if (!ctx)
+        return NULL;
+
+    // Setup return value for goto
+    char *ret = NULL;
+
+    // Variables that need to be freed before exit
+    gpgme_data_t data = NULL;
+    gpgme_data_t message = NULL;
+
+    // Construct a gpgme_data_t instance from data
+    // NOTE: we ask to copy since we don't want to mess up Go's memory manager
+    gpgme_error_t err = gpgme_data_new_from_mem (&data, encrypted_message, strlen (encrypted_message), COPY);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Initialize the cipher storage
+    err = gpgme_data_new (&message);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Now we can encrypt
+    err = gpgme_op_decrypt (ctx, data, message);
+    if (gpg_err_code (err) != GPG_ERR_NO_ERROR)
+        goto free_resources_and_return;
+
+    // Extract the cipher text from cipher object
+    size_t message_len = 0;
+    ret = gpgme_data_release_and_get_mem (message, &message_len);
+    if (ret)
+        ret[message_len - 1] = '\0';
+
+    // At this point cipher should already be released and no further release is required
+    message = NULL;
+
+free_resources_and_return:
+    if (message)
+        gpgme_data_release (message);
+    if (data)
+        gpgme_data_release (data);
+    if (ctx)
+        gpgme_release (ctx);
+
+    return ret;
+}
+
+
 void free_cipher_text (char *cipher_text)
 {
     if (!cipher_text)
