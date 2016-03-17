@@ -36,9 +36,11 @@ func startReceiver() {
 		}
 	}
 
+	wssurl := fmt.Sprintf("wss://%s:%s/ws/%s", *host, *port, *receiverKey)
+	origin := fmt.Sprintf("https://%s:%s", *host, *port)
+
 	// Start a websocket client and hopefully it will receive messages
-	// TODO: make host a configurable value
-	client := web.NewWSClient("wss://127.0.0.1:8000/ws/"+*receiverKey, "https://127.0.0.1:8000", certs)
+	client := web.NewWSClient(wssurl, origin, certs)
 	if err := client.Run(); err != nil {
 		panic(err)
 	}
