@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/x509"
 	"cryptz/crypto"
 	"cryptz/mail"
 	"cryptz/web"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 )
@@ -25,16 +26,21 @@ var (
 )
 
 func startReceiver() {
-	certs := x509.NewCertPool()
-	// TODO: build full.pem from cert.pem + key.pem
-	// TODO: make pem files a configurable value
-	for _, fname := range []string{"full.pem"} {
-		if barr, err := ioutil.ReadFile(fname); err != nil {
+	// Read cert.pem and key.pem into a buffer
+	buf := &bytes.Buffer{}
+	for _, fname := range []string{"cert.pem", "key.pem"} {
+		if f, err := os.Open(fname); err != nil {
 			panic(err)
-		} else if !certs.AppendCertsFromPEM(barr) {
-			println("Could not parse cert from PEM")
-			return
+		} else {
+			io.Copy(buf, f)
 		}
+	}
+
+	// Create a cert pool
+	certs := x509.NewCertPool()
+	if !certs.AppendCertsFromPEM(buf.Bytes()) {
+		println("Could not parse cert from PEM")
+		return
 	}
 
 	wssurl := fmt.Sprintf("wss://%s:%s/ws/%s", *host, *port, *receiverKey)

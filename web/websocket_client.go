@@ -40,19 +40,26 @@ func (c *client) Run() error {
 
 	for {
 		messageType, p, err := conn.ReadMessage()
-		if err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+			logError(err, "Error in websocket client")
 			return err
 		}
+		// Handle text messages
 		if messageType == websocket.TextMessage {
 			// decrypt the message before displaying
-			result, err := crypto.DecryptMessage(string(p))
-			if err != nil {
-				return err
+			if result, err := crypto.DecryptMessage(string(p)); err != nil {
+				println("------------------------------------------------------------")
+				println("An error occured when trying to decrypt message")
+				println("Ignoring this message")
+				println("------------------------------------------------------------")
+			} else {
+				println("------------------------------------------------------------")
+				println(result)
+				println("------------------------------------------------------------")
 			}
-			println(">>> " + result)
-			println("")
 		}
 	}
+	return nil
 }
 
 func NewWSClient(url, origin string, pool *x509.CertPool) Client {
