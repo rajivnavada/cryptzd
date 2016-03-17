@@ -6,6 +6,7 @@ import (
 	"cryptz/mail"
 	"cryptz/web"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
