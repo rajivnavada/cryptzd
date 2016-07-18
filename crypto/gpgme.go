@@ -1,8 +1,8 @@
 package crypto
 
-// #cgo CFLAGS: -DISCGO=1 -Wall
-// #cgo CPPFLAGS: -DISCGO=1
-// #cgo LDFLAGS: -lgpg-error -lassuan -lgpgme
+// #cgo CFLAGS: -DISCGO=1 -I/usr/local/include -I/usr/include -Wall
+// #cgo CPPFLAGS: -DISCGO=1 -I/usr/local/include -I/usr/include
+// #cgo LDFLAGS: -L/usr/local/lib -L/usr/lib -lgpg-error -lassuan -lgpgme
 // #include <stdlib.h>
 // #include "gpgme-bridge.h"
 import "C"
