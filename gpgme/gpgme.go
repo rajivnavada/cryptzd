@@ -1,4 +1,4 @@
-package crypto
+package gpgme
 
 // #cgo CFLAGS: -DISCGO=1 -I/usr/local/include -I/usr/include -Wall
 // #cgo CPPFLAGS: -DISCGO=1 -I/usr/local/include -I/usr/include
@@ -16,17 +16,55 @@ import (
 var (
 	FailedEncryptionError = errors.New("Failed to encrypt message.")
 	FailedDecryptionError = errors.New("Failed to decrypt message.")
+	InvalidKeyError       = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
+	MissingEmailError     = errors.New("Public key must contain a valid email address.")
 
 	importPublicKeyLock = &sync.Mutex{}
 	encryptLock         = &sync.Mutex{}
 	decryptLock         = &sync.Mutex{}
 )
 
-func importPublicKey(s string, bk *baseKey, bu *baseUser) error {
+type KeyInfo interface {
+	Fingerprint() string
+	ExpiresAt() time.Time
+	Email() string
+	Name() string
+	Comment() string
+}
+
+type keyInfo struct {
+	fingerprint string
+	expiresAt   time.Time
+	email       string
+	name        string
+	comment     string
+}
+
+func (k keyInfo) Fingerprint() string {
+	return k.fingerprint
+}
+
+func (k keyInfo) ExpiresAt() time.Time {
+	return k.expiresAt
+}
+
+func (k keyInfo) Email() string {
+	return k.email
+}
+
+func (k keyInfo) Name() string {
+	return k.name
+}
+
+func (k keyInfo) Comment() string {
+	return k.comment
+}
+
+func ImportPublicKey(s string) (KeyInfo, error) {
 	// Get a keyInfo object
-	var keyInfo *C.struct_key_info = C.new_key_info()
+	var cKeyInfo *C.struct_key_info = C.new_key_info()
 	// Free keyData since we use CString to allocate it
-	defer C.free_key_info(keyInfo)
+	defer C.free_key_info(cKeyInfo)
 
 	// Convert passed in public key to a C char array
 	keyData := C.CString(s)
@@ -34,45 +72,45 @@ func importPublicKey(s string, bk *baseKey, bu *baseUser) error {
 
 	// Now perform the import by protecting with a lock
 	importPublicKeyLock.Lock()
-	C.import_key(keyInfo, keyData)
+	C.import_key(cKeyInfo, keyData)
 	importPublicKeyLock.Unlock()
 
 	// Handle key info
+	ki := keyInfo{}
 
 	// fingerprint is a character array
-	fingerprint := C.GoStringN(&keyInfo.fingerprint[0], C.KEY_FINGERPRINT_LEN)
+	fingerprint := C.GoStringN(&cKeyInfo.fingerprint[0], C.KEY_FINGERPRINT_LEN)
 	if fingerprint == "" {
-		return InvalidKeyError
+		return nil, InvalidKeyError
 	}
-	bk.Fingerprint = fingerprint
+	ki.fingerprint = fingerprint
 
-	if keyInfo.expires > 0 {
-		bk.ExpiresAt = time.Unix(int64(keyInfo.expires), 0)
+	if cKeyInfo.expires > 0 {
+		ki.expiresAt = time.Unix(int64(cKeyInfo.expires), 0)
 	}
 
 	// Now handle the user info
 
-	emailLen := C.int(C.strlen(&keyInfo.user_email[0]))
-	nameLen := C.int(C.strlen(&keyInfo.user_name[0]))
-	commentLen := C.int(C.strlen(&keyInfo.user_comment[0]))
+	emailLen := C.int(C.strlen(&cKeyInfo.user_email[0]))
+	nameLen := C.int(C.strlen(&cKeyInfo.user_name[0]))
+	commentLen := C.int(C.strlen(&cKeyInfo.user_comment[0]))
 
 	if emailLen == 0 {
-		return MissingEmailError
+		return nil, MissingEmailError
 	}
 
-	email := C.GoStringN(&keyInfo.user_email[0], emailLen)
+	email := C.GoStringN(&cKeyInfo.user_email[0], emailLen)
 	if email == "" {
-		return MissingEmailError
+		return nil, MissingEmailError
 	}
-	bu.Email = email
+	ki.email = email
+	ki.name = C.GoStringN(&cKeyInfo.user_name[0], nameLen)
+	ki.comment = C.GoStringN(&cKeyInfo.user_comment[0], commentLen)
 
-	bu.Name = C.GoStringN(&keyInfo.user_name[0], nameLen)
-	bu.Comment = C.GoStringN(&keyInfo.user_comment[0], commentLen)
-
-	return nil
+	return ki, nil
 }
 
-func encryptMessage(message, fingerprint string) (string, error) {
+func EncryptMessage(message, fingerprint string) (string, error) {
 	// Get the fingerprint as a C string
 	fpr := C.CString(fingerprint)
 	defer C.free(unsafe.Pointer(fpr))

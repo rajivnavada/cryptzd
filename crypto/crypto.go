@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/md5"
+	"cryptz/gpgme"
 	"cryptz/mongo"
 	"errors"
 	"fmt"
@@ -23,8 +24,6 @@ var (
 	MongoHostName                   = "127.0.0.1"
 	MongoDbName                     = "cryptz"
 	NotImplementedError             = errors.New("Not implemented")
-	InvalidKeyError                 = errors.New("Provided public key is invalid. Please make sure the key has not expired or revoked.")
-	MissingEmailError               = errors.New("Public key must contain a valid email address.")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
 	StopIterationError              = errors.New("No more items to return")
 )
@@ -174,10 +173,7 @@ func (bk *baseKey) reloadFromDataStore(sess mongo.Session) error {
 	} else {
 		selector = bson.M{"_id": bk.Id}
 	}
-	if err := sess.Find(bk, selector, KEY_COLLECTION_NAME); err != nil {
-		return err
-	}
-	return nil
+	return sess.Find(bk, selector, KEY_COLLECTION_NAME)
 }
 
 func (bk *baseKey) mergeWith(saved *baseKey) {
@@ -200,7 +196,7 @@ func (bk *baseKey) Save(sess mongo.Session) error {
 
 func (bk *baseKey) Encrypt(msg string) (string, error) {
 	// Protect access to the C functions
-	cipher, err := encryptMessage(msg, bk.Fingerprint)
+	cipher, err := gpgme.EncryptMessage(msg, bk.Fingerprint)
 	if err != nil {
 		return "", err
 	}
@@ -210,7 +206,7 @@ func (bk *baseKey) Encrypt(msg string) (string, error) {
 
 func (bk *baseKey) EncryptMessage(s, subject, sender string) (Message, error) {
 	// Protect access to the C functions
-	cipher, err := encryptMessage(s, bk.Fingerprint)
+	cipher, err := gpgme.EncryptMessage(s, bk.Fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -801,17 +797,20 @@ func newMessageCollection(pageLength uint8, key string, pageNum int) *messageCol
 //----------------------------------------
 
 func ImportKeyAndUser(publicKey string) (Key, User, error) {
-	// This is where we need to do a C thang
-	bk := &baseKey{}
-	bu := &baseUser{}
-
 	// Protect access to the C function
-	err := importPublicKey(publicKey, bk, bu)
-
+	ki, err := gpgme.ImportPublicKey(publicKey)
 	if err != nil {
 		return nil, nil, err
-	} else if bk == nil || bu == nil {
-		return nil, nil, errors.New("An unknown error has occured in ImportKeyAndUser()")
+	}
+
+	bk := &baseKey{
+		Fingerprint: ki.Fingerprint(),
+		ExpiresAt:   ki.ExpiresAt(),
+	}
+	bu := &baseUser{
+		Name:    ki.Name(),
+		Email:   ki.Email(),
+		Comment: ki.Comment(),
 	}
 
 	sess := newSession()

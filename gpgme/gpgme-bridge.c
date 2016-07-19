@@ -55,9 +55,7 @@ gpgme_key_t get_key (gpgme_ctx_t ctx, const char *fingerprint)
 
 key_info_t new_key_info ()
 {
-    key_info_t info = (key_info_t) malloc (sizeof (struct key_info));
-    (void) memset (info, 0, sizeof (struct key_info));
-    return info;
+    return (key_info_t) calloc (1, sizeof (struct key_info));
 }
 
 

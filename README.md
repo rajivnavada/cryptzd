@@ -23,3 +23,12 @@ Dependencies:
 [mongodb]: https://www.mongodb.com/ "MongoDB"
 [sqlite3]: https://www.sqlite.org/ "SQLite"
 
+Motivation:
+-----------
+
+* To improve understanding of go
+* To learn cgo
+* To learn GnuPG & the GPGME API
+* To build a go wrapper around GnuPG
+* A project for Zillow Hack Week 11 (Extending it for current Hack Week 12)
+

@@ -3,7 +3,7 @@ package web
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"cryptz/crypto"
+	"cryptz/gpgme"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
@@ -47,7 +47,7 @@ func (c *client) Run() error {
 		// Handle text messages
 		if messageType == websocket.TextMessage {
 			// decrypt the message before displaying
-			if result, err := crypto.DecryptMessage(string(p)); err != nil {
+			if result, err := gpgme.DecryptMessage(string(p)); err != nil {
 				println("------------------------------------------------------------")
 				println("An error occured when trying to decrypt message")
 				println("Ignoring this message")
