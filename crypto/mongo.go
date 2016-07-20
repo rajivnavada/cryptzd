@@ -1,4 +1,4 @@
-package mongo
+package crypto
 
 import (
 	"errors"
@@ -9,12 +9,6 @@ import (
 //----------------------------------------
 // CONSTANTS AND VARIABLES
 //----------------------------------------
-
-const (
-	SEEK_START int = 0
-	SEEK_CUR   int = 1
-	SEEK_END   int = 2
-)
 
 var (
 	NilSessionError error = errors.New("A mgo.Session instance is required but nil provided.")

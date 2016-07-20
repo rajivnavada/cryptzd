@@ -3,7 +3,6 @@ package crypto
 import (
 	"crypto/md5"
 	"cryptz/gpgme"
-	"cryptz/mongo"
 	"errors"
 	"fmt"
 	"gopkg.in/mgo.v2"
@@ -121,12 +120,12 @@ type UserCollection interface {
 // GENERIC FUNCTIONS
 //----------------------------------------
 
-func newSession() mongo.Session {
-	return mongo.NewSession(MongoHostName, MongoDbName)
+func newSession() Session {
+	return NewSession(MongoHostName, MongoDbName)
 }
 
 type reloadable interface {
-	reloadFromDataStore(mongo.Session) error
+	reloadFromDataStore(Session) error
 }
 
 func find(selector reloadable) error {
@@ -165,7 +164,7 @@ type baseKey struct {
 }
 
 // NOTE: this will change the receiver. Use carfully.
-func (bk *baseKey) reloadFromDataStore(sess mongo.Session) error {
+func (bk *baseKey) reloadFromDataStore(sess Session) error {
 	// We can select with Fingerprint or Id. One is required.
 	var selector bson.M
 	if bk.Fingerprint != "" {
@@ -186,7 +185,7 @@ func (bk *baseKey) ObjectId() bson.ObjectId {
 	return bk.Id
 }
 
-func (bk *baseKey) Save(sess mongo.Session) error {
+func (bk *baseKey) Save(sess Session) error {
 	if !bk.Id.Valid() {
 		bk.Id = bson.NewObjectId()
 		return sess.Save(bk, KEY_COLLECTION_NAME)
@@ -318,7 +317,7 @@ type baseUser struct {
 }
 
 // NOTE: this will change the receiver. Use carfully.
-func (bu *baseUser) reloadFromDataStore(sess mongo.Session) error {
+func (bu *baseUser) reloadFromDataStore(sess Session) error {
 	// We can select with Id or Email. One of them is required
 	var selector bson.M
 	if bu.Email != "" {
@@ -344,7 +343,7 @@ func (bu *baseUser) Keys() KeyCollection {
 	return newKeyCollection(uint8(20), bu.Id.Hex(), 0)
 }
 
-func (bu *baseUser) Save(sess mongo.Session) error {
+func (bu *baseUser) Save(sess Session) error {
 	if !bu.Id.Valid() {
 		bu.Id = bson.NewObjectId()
 		return sess.Save(bu, USER_COLLECTION_NAME)
@@ -503,7 +502,7 @@ type baseMessage struct {
 	CreatedAt time.Time
 }
 
-func (m *baseMessage) Save(sess mongo.Session) error {
+func (m *baseMessage) Save(sess Session) error {
 	if !m.Id.Valid() {
 		m.Id = bson.NewObjectId()
 		return sess.Save(m, MESSAGE_COLLECTION_NAME)
@@ -873,7 +872,7 @@ func InitService(mongoHost, mongoDbName string) {
 	MongoHostName = mongoHost
 	MongoDbName = mongoDbName
 	// Make sure we have the right indexes on the data
-	indexer := mongo.NewIndexer(MongoHostName, MongoDbName)
+	indexer := NewIndexer(MongoHostName, MongoDbName)
 	defer indexer.Close()
 
 	if err := indexer.AddUniqueIndex(USER_COLLECTION_NAME, "email"); err != nil {
