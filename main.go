@@ -16,8 +16,7 @@ import (
 var (
 	host                    = flag.String("host", "127.0.0.1", "HTTP service host")
 	port                    = flag.String("port", "8000", "HTTP port at which the service will run")
-	mongoHost               = flag.String("mongoHost", "127.0.0.1", "MongoDB host")
-	mongoDbName             = flag.String("mongoDbName", "cryptz", "MongoDB database name")
+	sqliteFilePath          = flag.String("db", "/usr/local/var/db/cryptz/cryptz.db", "Path to sqllite db file.")
 	appEmail                = flag.String("appEmail", "zocmyworld@gmail.com", "Email address to use for sender for this app")
 	appEmailPasswordEnvName = flag.String("appPasswordEnvName", "MAILPASS", "Name of the environment variable that contains the password for this app email sender")
 	debug                   = flag.Bool("debug", false, "Turn on debug mode")
@@ -61,8 +60,8 @@ func main() {
 		return
 	}
 
-	// Check mongo service
-	crypto.InitService(*mongoHost, *mongoDbName)
+	// Init services
+	crypto.InitService(*sqliteFilePath)
 	mail.InitService(*appEmail, os.Getenv(*appEmailPasswordEnvName))
 
 	// start the connection hub for websocket stuff
@@ -73,7 +72,7 @@ func main() {
 	addr := *host + ":" + *port
 
 	if *debug {
-		println("Will start http server at:", addr)
+		fmt.Printf("Starting http server at: https://%s\n", addr)
 	}
 
 	server := &http.Server{

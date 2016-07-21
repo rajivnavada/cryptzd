@@ -3,8 +3,8 @@ package web
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"cryptz/gpgme"
 	"github.com/gorilla/websocket"
+	"github.com/rajivnavada/gpgme"
 	"net/http"
 )
 
