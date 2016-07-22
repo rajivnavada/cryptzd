@@ -124,6 +124,10 @@ func (k *publicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
 		return nil, err
 	}
 	for _, m := range messages {
+		// TODO: we could possibly load the sender into the message using JOIN
+		if err = m.loadSender(dbMap); err != nil {
+			return nil, err
+		}
 		ret = append(ret, &encryptedMessage{m})
 	}
 	return ret, nil

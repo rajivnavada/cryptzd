@@ -76,20 +76,20 @@ type Project interface {
 	Identifiable
 	Saveable
 
-	AdminId() int
 	Name() string
 	Environment() string
+	DefaultAccessLevel() string
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	Members() []ProjectMember
-	AddMember(userId int) (ProjectMember, error)
-	RemoveMember(userId int) error
+	Members(dbMap *DataMapper) ([]ProjectMember, error)
+	AddMember(userId int, dbMap *DataMapper) (ProjectMember, error)
+	RemoveMember(userId int, dbMap *DataMapper) error
 
-	Credentials() []ProjectCredential
-	AddCredential(key string) (ProjectCredential, error)
-	UpdateCredential(key string) (ProjectCredential, error)
-	RemoveCredential(key string) error
+	Credentials(dbMap *DataMapper) ([]ProjectCredentialKey, error)
+	AddCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error)
+	UpdateCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error)
+	RemoveCredential(key string, dbMap *DataMapper) error
 }
 
 type ProjectMember interface {
@@ -98,14 +98,14 @@ type ProjectMember interface {
 
 	ProjectId() int
 	UserId() int
+	AccessLevel() string
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	Project() Project
-	User() User
+	User(dbMap *DataMapper) (User, error)
 }
 
-type ProjectCredential interface {
+type ProjectCredentialKey interface {
 	Identifiable
 	Saveable
 
@@ -115,13 +115,17 @@ type ProjectCredential interface {
 	UpdatedAt() time.Time
 }
 
-type EncryptedProjectCredential interface {
+type ProjectCredentialValue interface {
 	Identifiable
 	Saveable
 
 	CredentialId() int
+	MemberId() int
 	PublicKeyId() int
-	Credential() string
+
+	Cipher() []byte
+	SetCipher([]byte)
+
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 	ExpiresAt() time.Time
@@ -133,7 +137,7 @@ type UserCredential interface {
 
 	UserId() int
 	Key() string
-
+	Cipher() []byte
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 }

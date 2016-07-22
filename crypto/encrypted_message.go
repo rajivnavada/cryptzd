@@ -12,6 +12,18 @@ type encryptedMessageCore struct {
 	Cipher      []byte    `db:"cipher"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
+
+	sender User `db:"-"`
+}
+
+func (e *encryptedMessageCore) loadSender(dbMap *DataMapper) error {
+	u, err := FindUserWithId(e.SenderId, dbMap)
+	if err != nil {
+		return err
+	}
+
+	e.sender = u
+	return nil
 }
 
 type encryptedMessage struct {
@@ -46,18 +58,7 @@ func (em *encryptedMessage) Sender() User {
 	if em.encryptedMessageCore.SenderId == 0 {
 		return nil
 	}
-	dbMap, err := NewDataMapper()
-	if err != nil {
-		return nil
-	}
-	defer dbMap.Close()
-
-	u, err := FindUserWithId(em.encryptedMessageCore.SenderId, dbMap)
-	if err != nil {
-		return nil
-	}
-
-	return u
+	return em.encryptedMessageCore.sender
 }
 
 func (em *encryptedMessage) Save(dbMap *DataMapper) error {

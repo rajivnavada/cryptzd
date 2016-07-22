@@ -25,6 +25,10 @@ func NewDataMapper() (*DataMapper, error) {
 	dbMap.AddTableWithName(userCore{}, "users").SetKeys(true, "Id")
 	dbMap.AddTableWithName(publicKeyCore{}, "public_keys").SetKeys(true, "Id")
 	dbMap.AddTableWithName(encryptedMessageCore{}, "encrypted_messages").SetKeys(true, "Id")
+	dbMap.AddTableWithName(projectCore{}, "projects").SetKeys(true, "Id")
+	dbMap.AddTableWithName(projectMemberCore{}, "project_members").SetKeys(true, "Id")
+	dbMap.AddTableWithName(projectCredentialKeyCore{}, "project_credential_keys").SetKeys(true, "Id")
+	dbMap.AddTableWithName(projectCredentialValueCore{}, "project_credential_values").SetKeys(true, "Id")
 
 	return &DataMapper{dbMap}, nil
 }

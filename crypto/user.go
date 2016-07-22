@@ -60,7 +60,8 @@ func (u user) PublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 	var ret []PublicKey
 	var keys []*publicKeyCore
-	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ?", u.Id())
+	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND activated_at IS NOT NULL AND expires_at > ? ORDER BY created_at ASC",
+		u.Id(), time.Now().UTC())
 	if err != nil {
 		return nil, err
 	}
