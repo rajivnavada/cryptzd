@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type defaultPublicKeyCore struct {
+type publicKeyCore struct {
 	Id          int       `db:"id"`
 	UserId      int       `db:"user_id"`
 	Fingerprint string    `db:"fingerprint"`
@@ -18,63 +18,63 @@ type defaultPublicKeyCore struct {
 	ExpiresAt   time.Time `db:"expires_at"`
 }
 
-type defaultPublicKey struct {
-	*defaultPublicKeyCore
+type publicKey struct {
+	*publicKeyCore
 }
 
-func (k defaultPublicKey) Id() int {
-	return k.defaultPublicKeyCore.Id
+func (k publicKey) Id() int {
+	return k.publicKeyCore.Id
 }
 
-func (k defaultPublicKey) UserId() int {
-	return k.defaultPublicKeyCore.UserId
+func (k publicKey) UserId() int {
+	return k.publicKeyCore.UserId
 }
 
-func (k *defaultPublicKey) SetUserId(uid int) {
-	k.defaultPublicKeyCore.UserId = uid
+func (k *publicKey) SetUserId(uid int) {
+	k.publicKeyCore.UserId = uid
 }
 
-func (k defaultPublicKey) Fingerprint() string {
-	return k.defaultPublicKeyCore.Fingerprint
+func (k publicKey) Fingerprint() string {
+	return k.publicKeyCore.Fingerprint
 }
 
-func (k defaultPublicKey) KeyData() []byte {
-	return k.defaultPublicKeyCore.KeyData
+func (k publicKey) KeyData() []byte {
+	return k.publicKeyCore.KeyData
 }
 
-func (k *defaultPublicKey) SetKeyData(d []byte) {
-	k.defaultPublicKeyCore.KeyData = d
+func (k *publicKey) SetKeyData(d []byte) {
+	k.publicKeyCore.KeyData = d
 }
 
-func (k defaultPublicKey) Active() bool {
-	return !k.defaultPublicKeyCore.ActivatedAt.IsZero()
+func (k publicKey) Active() bool {
+	return !k.publicKeyCore.ActivatedAt.IsZero()
 }
 
-func (k defaultPublicKey) CreatedAt() time.Time {
-	return k.defaultPublicKeyCore.CreatedAt
+func (k publicKey) CreatedAt() time.Time {
+	return k.publicKeyCore.CreatedAt
 }
 
-func (k defaultPublicKey) UpdatedAt() time.Time {
-	return k.defaultPublicKeyCore.UpdatedAt
+func (k publicKey) UpdatedAt() time.Time {
+	return k.publicKeyCore.UpdatedAt
 }
 
-func (k defaultPublicKey) ActivatedAt() time.Time {
-	return k.defaultPublicKeyCore.ActivatedAt
+func (k publicKey) ActivatedAt() time.Time {
+	return k.publicKeyCore.ActivatedAt
 }
 
-func (k defaultPublicKey) ExpiresAt() time.Time {
-	return k.defaultPublicKeyCore.ExpiresAt
+func (k publicKey) ExpiresAt() time.Time {
+	return k.publicKeyCore.ExpiresAt
 }
 
-func (k *defaultPublicKey) SetExpiresAt(t time.Time) {
-	k.defaultPublicKeyCore.ExpiresAt = t
+func (k *publicKey) SetExpiresAt(t time.Time) {
+	k.publicKeyCore.ExpiresAt = t
 }
 
-func (k defaultPublicKey) User(dbMap *DataMapper) User {
-	if k.defaultPublicKeyCore.UserId == 0 {
+func (k publicKey) User(dbMap *DataMapper) User {
+	if k.publicKeyCore.UserId == 0 {
 		return nil
 	}
-	u, err := FindUserWithId(k.defaultPublicKeyCore.UserId, dbMap)
+	u, err := FindUserWithId(k.publicKeyCore.UserId, dbMap)
 	if err != nil {
 		log.Println("An error occured when trying to retreive user")
 		log.Println(err)
@@ -83,7 +83,7 @@ func (k defaultPublicKey) User(dbMap *DataMapper) User {
 	return u
 }
 
-func (k defaultPublicKey) Encrypt(msg string) (string, error) {
+func (k publicKey) Encrypt(msg string) (string, error) {
 	cipher, err := gpgme.EncryptMessage(msg, k.Fingerprint())
 	if err != nil {
 		return "", err
@@ -91,13 +91,13 @@ func (k defaultPublicKey) Encrypt(msg string) (string, error) {
 	return cipher, nil
 }
 
-func (k defaultPublicKey) EncryptAndSave(senderId int, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
+func (k publicKey) EncryptAndSave(senderId int, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
 	cipher, err := gpgme.EncryptMessage(t, k.Fingerprint())
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := newMessage(k.Id(), senderId, cipher, subject)
+	msg, err := newMessage(k.Id(), senderId, []byte(cipher), subject)
 	if err != nil {
 		return nil, err
 	}
@@ -110,13 +110,13 @@ func (k defaultPublicKey) EncryptAndSave(senderId int, t, subject string, dbMap 
 	return msg, nil
 }
 
-func (k *defaultPublicKey) Activate() {
-	if k.defaultPublicKeyCore.ActivatedAt.IsZero() {
-		k.defaultPublicKeyCore.ActivatedAt = time.Now().UTC()
+func (k *publicKey) Activate() {
+	if k.publicKeyCore.ActivatedAt.IsZero() {
+		k.publicKeyCore.ActivatedAt = time.Now().UTC()
 	}
 }
 
-func (k *defaultPublicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
+func (k *publicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
 	var ret []EncryptedMessage
 	var messages []*encryptedMessageCore
 	_, err := dbMap.Select(&messages, "SELECT * FROM encrypted_messages WHERE public_key_id = ?", k.Id())
@@ -129,37 +129,37 @@ func (k *defaultPublicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, erro
 	return ret, nil
 }
 
-func (k defaultPublicKey) Save(dbMap *DataMapper) error {
+func (k publicKey) Save(dbMap *DataMapper) error {
 	if k.Id() > 0 {
-		_, err := dbMap.Update(k.defaultPublicKeyCore)
+		_, err := dbMap.Update(k.publicKeyCore)
 		return err
 	}
-	return dbMap.Insert(k.defaultPublicKeyCore)
+	return dbMap.Insert(k.publicKeyCore)
 }
 
 func FindKeyWithId(id int, dbMap *DataMapper) (PublicKey, error) {
-	kc := &defaultPublicKeyCore{Id: id}
+	kc := &publicKeyCore{Id: id}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE id = ?", kc.Id)
 	if err != nil {
 		return nil, err
 	}
-	return &defaultPublicKey{kc}, nil
+	return &publicKey{kc}, nil
 }
 
 func FindPublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
-	kc := &defaultPublicKeyCore{Fingerprint: fingerprint}
+	kc := &publicKeyCore{Fingerprint: fingerprint}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
 	if err != nil {
 		return nil, err
 	}
-	return &defaultPublicKey{kc}, nil
+	return &publicKey{kc}, nil
 }
 
 func FindOrCreatePublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
-	kc := &defaultPublicKeyCore{Fingerprint: fingerprint}
+	kc := &publicKeyCore{Fingerprint: fingerprint}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-	return &defaultPublicKey{kc}, nil
+	return &publicKey{kc}, nil
 }

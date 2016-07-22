@@ -54,6 +54,8 @@ func ImportKeyAndUser(publicKey string) (PublicKey, User, error) {
 		// Now we can update some key info
 		k.SetExpiresAt(ki.ExpiresAt())
 		k.SetUserId(u.Id())
+		k.SetKeyData([]byte(publicKey))
+
 		err = k.Save(dbMap)
 		if err != nil {
 			return nil, nil, err

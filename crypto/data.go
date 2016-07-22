@@ -65,7 +65,7 @@ type EncryptedMessage interface {
 
 	PublicKeyId() int
 	Subject() string
-	Cipher() string
+	Cipher() []byte
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
@@ -93,6 +93,7 @@ type Project interface {
 }
 
 type ProjectMember interface {
+	Identifiable
 	Saveable
 
 	ProjectId() int
@@ -115,6 +116,7 @@ type ProjectCredential interface {
 }
 
 type EncryptedProjectCredential interface {
+	Identifiable
 	Saveable
 
 	CredentialId() int
@@ -123,4 +125,15 @@ type EncryptedProjectCredential interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 	ExpiresAt() time.Time
+}
+
+type UserCredential interface {
+	Identifiable
+	Saveable
+
+	UserId() int
+	Key() string
+
+	CreatedAt() time.Time
+	UpdatedAt() time.Time
 }

@@ -9,7 +9,7 @@ type encryptedMessageCore struct {
 	SenderId    int       `db:"sender_id"`
 	PublicKeyId int       `db:"public_key_id"`
 	Subject     string    `db:"subject"`
-	Cipher      string    `db:"cipher"`
+	Cipher      []byte    `db:"cipher"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
 }
@@ -30,7 +30,7 @@ func (em encryptedMessage) Subject() string {
 	return em.encryptedMessageCore.Subject
 }
 
-func (em encryptedMessage) Cipher() string {
+func (em encryptedMessage) Cipher() []byte {
 	return em.encryptedMessageCore.Cipher
 }
 
@@ -68,8 +68,8 @@ func (em *encryptedMessage) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(em.encryptedMessageCore)
 }
 
-func newMessage(publicKeyId, senderId int, cipher, subject string) (*encryptedMessage, error) {
-	if publicKeyId == 0 || senderId == 0 || cipher == "" {
+func newMessage(publicKeyId, senderId int, cipher []byte, subject string) (*encryptedMessage, error) {
+	if len(cipher) == 0 || publicKeyId == 0 || senderId == 0 {
 		return nil, InvalidArgumentsForMessageError
 	}
 	currentTime := time.Now().UTC()

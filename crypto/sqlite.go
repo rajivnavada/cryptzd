@@ -22,8 +22,8 @@ func NewDataMapper() (*DataMapper, error) {
 	}
 
 	// Add the tables
-	dbMap.AddTableWithName(defaultUserCore{}, "users").SetKeys(true, "Id")
-	dbMap.AddTableWithName(defaultPublicKeyCore{}, "public_keys").SetKeys(true, "Id")
+	dbMap.AddTableWithName(userCore{}, "users").SetKeys(true, "Id")
+	dbMap.AddTableWithName(publicKeyCore{}, "public_keys").SetKeys(true, "Id")
 	dbMap.AddTableWithName(encryptedMessageCore{}, "encrypted_messages").SetKeys(true, "Id")
 
 	return &DataMapper{dbMap}, nil

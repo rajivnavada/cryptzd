@@ -93,7 +93,7 @@ func (h *Hub) Run() {
 					var buf *bytes.Buffer
 					var err error
 					if c.isCLI {
-						buf = bytes.NewBufferString(m.Cipher())
+						buf = bytes.NewBuffer(m.Cipher())
 						err = nil
 					} else {
 						buf = &bytes.Buffer{}
