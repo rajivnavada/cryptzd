@@ -4,50 +4,78 @@ import (
 	"time"
 )
 
-type User interface {
+type Identifiable interface {
 	Id() int
+}
+
+type Saveable interface {
+	Save(dbMap *DataMapper) error
+}
+
+type User interface {
+	Identifiable
+	Saveable
+
 	Name() string
+	SetName(string)
+
 	Email() string
+
 	Comment() string
+	SetComment(string)
+
 	ImageURL() string
 
-	PublicKeys() []PublicKey
-	ActivePublicKeys() []PublicKey
-	EncryptAndSave(message, subject, sender string) ([]EncryptedMessage, error)
+	PublicKeys(dbMap *DataMapper) ([]PublicKey, error)
+	ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error)
+	EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error)
 }
 
 type PublicKey interface {
-	Id() int
+	Identifiable
+	Saveable
+
 	UserId() int
+	SetUserId(int)
+
 	Fingerprint() string
-	KeyData() string
+
+	KeyData() []byte
+	SetKeyData([]byte)
+
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
+
 	ExpiresAt() time.Time
+	SetExpiresAt(time.Time)
+
 	ActivatedAt() time.Time
 	Active() bool
 
-	Activate() error
-	User() User
-	Messages() []EncryptedMessage
+	Activate()
+	User(dbMap *DataMapper) User
+	Messages(dbMap *DataMapper) ([]EncryptedMessage, error)
 	Encrypt(string) (string, error)
-	EncryptAndSave(message, subject, sender string) (EncryptedMessage, error)
+	EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (EncryptedMessage, error)
 }
 
 type EncryptedMessage interface {
-	Id() int
+	Identifiable
+	Saveable
+
 	PublicKeyId() int
 	Subject() string
-	Message() string
+	Cipher() string
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	PublicKey() PublicKey
 	Sender() User
 }
 
 type Project interface {
-	Id() int
+	Identifiable
+	Saveable
+
 	AdminId() int
 	Name() string
 	Environment() string
@@ -65,6 +93,8 @@ type Project interface {
 }
 
 type ProjectMember interface {
+	Saveable
+
 	ProjectId() int
 	UserId() int
 	CreatedAt() time.Time
@@ -75,7 +105,9 @@ type ProjectMember interface {
 }
 
 type ProjectCredential interface {
-	Id() int
+	Identifiable
+	Saveable
+
 	ProjectId() int
 	Key() string
 	CreatedAt() time.Time
@@ -83,6 +115,8 @@ type ProjectCredential interface {
 }
 
 type EncryptedProjectCredential interface {
+	Saveable
+
 	CredentialId() int
 	PublicKeyId() int
 	Credential() string

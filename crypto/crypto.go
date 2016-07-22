@@ -1,101 +1,85 @@
 package crypto
 
 import (
-	"crypto/md5"
 	"errors"
-	"fmt"
 	"github.com/rajivnavada/gpgme"
-	"io"
-	"log"
-	"strings"
-	"time"
 )
 
 var (
+	DebugMode                       = false
 	SqliteFilePath                  = ""
 	NotImplementedError             = errors.New("Not implemented")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
 	StopIterationError              = errors.New("No more items to return")
+	MisconfiguredKeyError           = errors.New("email address in key does not match email address of user in database.")
 )
 
-func ImportKeyAndUser(publicKey string) (Key, User, error) {
-	// Protect access to the C function
+func ImportKeyAndUser(publicKey string) (PublicKey, User, error) {
 	ki, err := gpgme.ImportPublicKey(publicKey)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	bk := &defaultPublicKeyCore{
-		Fingerprint: ki.Fingerprint(),
-		ExpiresAt:   ki.ExpiresAt(),
-	}
-	bu := &defaultUserCore{
-		Name:    ki.Name(),
-		Email:   ki.Email(),
-		Comment: ki.Comment(),
-	}
+	var k PublicKey
+	var u User
 
-	savedUser := &defaultUserCore{Email: bu.Email}
-	if err := savedUser.reloadFromDataStore(sess); err != nil && err != mgo.ErrNotFound {
+	dbMap, err := NewDataMapper()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer dbMap.Close()
+
+	k, err = FindOrCreatePublicKeyWithFingerprint(ki.Fingerprint(), dbMap)
+	if err != nil {
 		return nil, nil, err
 	} else {
-		// Update the object
-		if err == nil {
-			bu.mergeWith(savedUser)
-		} else {
-			bu.CreatedAt = time.Now().UTC()
+		// Try to find the user attached to this key
+		u = k.User(dbMap)
+		if u == nil {
+			u, err = FindOrCreateUserWithEmail(ki.Email(), dbMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			u.SetName(ki.Name())
+			u.SetComment(ki.Comment())
+			err = u.Save(dbMap)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else if u.Email() != ki.Email() {
+			// If the key already belongs to a user, the email addresses must match
+			return nil, nil, MisconfiguredKeyError
 		}
-		bu.UpdatedAt = time.Now().UTC()
-		// Save and done
-		if err := bu.Save(sess); err != nil {
+
+		// Now we can update some key info
+		k.SetExpiresAt(ki.ExpiresAt())
+		k.SetUserId(u.Id())
+		err = k.Save(dbMap)
+		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	u := &defaultUser{bu}
-
-	savedKey := &baseKey{Fingerprint: bk.Fingerprint}
-	if err := savedKey.reloadFromDataStore(sess); err != nil && err != mgo.ErrNotFound {
-		return nil, nil, err
-	} else {
-		// If we successfully loaded the key from database, update some data
-		if err == nil {
-			bk.mergeWith(savedKey)
-		} else {
-			bk.CreatedAt = time.Now().UTC()
-		}
-		// TODO: Users should never really change once set.
-		// Look into it and decide if this needs to do some error checking around that.
-		bk.User = u.Id()
-		// Save the key
-		if err := bk.Save(sess); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	return &defaultPublicKey{bk}, &defaultUser{bu}, nil
+	return k, u, nil
 }
 
 //----------------------------------------
 // INIT
 //----------------------------------------
 
-func InitService(sqliteFilePath string) {
+func InitService(sqliteFilePath string, debugMode bool) {
 	SqliteFilePath = sqliteFilePath
 
-	dbMap, err := initDb(SqliteFilePath)
+	dbMap, err := NewDataMapper()
 	if err != nil {
 		panic(err)
 	}
 	defer dbMap.Close()
 
-	// Add the tables
-	dbMap.AddTableWithName(defaultUserCore{}, "users").SetKeys(true, "Id")
-	dbMap.AddTableWithName(defaultPublicKeyCore{}, "public_keys").SetKeys(true, "Id")
-	dbMap.AddTableWithName(defaultEncryptedMessageCore{}, "encrypted_messages").SetKeys(true, "Id")
+	DebugMode = debugMode
 
 	// In non-debug environments we'll use migrations to generate tables
-	if *debug {
+	if DebugMode {
 		err = dbMap.CreateTablesIfNotExists()
 		if err != nil {
 			panic(err)

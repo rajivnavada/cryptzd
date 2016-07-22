@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"io"
 	"strings"
@@ -9,11 +10,10 @@ import (
 )
 
 type defaultUserCore struct {
-	Id        string    `db:"id"`
+	Id        int       `db:"id"`
 	Name      string    `db:"name"`
 	Email     string    `db:"email"`
 	Comment   string    `db:"comment"`
-	ImageURL  string    `db:"image_url"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
@@ -22,12 +22,16 @@ type defaultUser struct {
 	*defaultUserCore
 }
 
-func (du defaultUser) Id() string {
+func (du defaultUser) Id() int {
 	return du.defaultUserCore.Id
 }
 
 func (du defaultUser) Name() string {
 	return du.defaultUserCore.Name
+}
+
+func (du *defaultUser) SetName(name string) {
+	du.defaultUserCore.Name = name
 }
 
 func (du defaultUser) Email() string {
@@ -38,6 +42,10 @@ func (du defaultUser) Comment() string {
 	return du.defaultUserCore.Comment
 }
 
+func (du *defaultUser) SetComment(comment string) {
+	du.defaultUserCore.Comment = comment
+}
+
 func (du defaultUser) ImageURL() string {
 	email := strings.ToLower(du.Email())
 	h := md5.New()
@@ -45,25 +53,37 @@ func (du defaultUser) ImageURL() string {
 	return fmt.Sprintf("//www.gravatar.com/avatar/%x?s=64&d=wavatar", h.Sum(nil))
 }
 
-func (du defaultUser) PublicKeys() []PublicKey {
-	return make([]PublicKey, 0)
+func (du defaultUser) PublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
+	return make([]PublicKey, 0), nil
 }
 
-func (du defaultUser) ActivePublicKeys() []PublicKey {
-	return make([]PublicKey, 0)
+func (du defaultUser) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
+	var ret []PublicKey
+	var keys []*defaultPublicKeyCore
+	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ?", du.Id())
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range keys {
+		ret = append(ret, &defaultPublicKey{k})
+	}
+	return ret, nil
 }
 
-func (du defaultUser) EncryptAndSave(message, subject, sender string) ([]EncryptedMessage, error) {
-	kc := du.ActivePublicKeys()
+func (du defaultUser) EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error) {
+	kc, err := du.ActivePublicKeys(dbMap)
+	if err != nil {
+		return nil, err
+	}
 	ch := make(chan encryptionResult)
 
 	// Loop over the keys and create go routines to encrypt messages per key
 	for _, k := range kc {
 
-		go func(message, subject, sender string, k PublicKey) {
+		go func(senderId int, message, subject string, dbMap *DataMapper, k PublicKey) {
 
 			er := encryptionResult{key: k.Fingerprint()}
-			encrypted, err := k.EncryptAndSave(message, subject, sender)
+			encrypted, err := k.EncryptAndSave(senderId, message, subject, dbMap)
 			if err != nil {
 				er.err = err
 			} else {
@@ -71,215 +91,76 @@ func (du defaultUser) EncryptAndSave(message, subject, sender string) ([]Encrypt
 			}
 			ch <- er
 
-		}(message, subject, sender, k)
+		}(senderId, message, subject, dbMap, k)
 
 	}
 
-	var ret encryptionResults
+	var results encryptionResults
+	ret := make(map[string]EncryptedMessage)
 
-	for ret.Size() < len(kc) {
+	for results.Size() < len(kc) {
 		select {
 		case encResult := <-ch:
-			ret.Add(encResult)
+			results.Add(encResult)
+			if encResult.err == nil {
+				ret[encResult.Key()] = encResult.Message()
+			}
 			break
 		}
 	}
 
 	close(ch)
 
-	if ret.IsErr() {
-		return nil, ret
+	if results.IsErr() {
+		return nil, results
 	}
-
 	return ret, nil
 }
 
-func FindUserWithId(id int) (User, error) {
-	u := &defaultUser{&defaultUserCore{Id: id}}
-	if err := find(u); err != nil {
+func (du defaultUser) Save(dbMap *DataMapper) error {
+	if du.Id() > 0 {
+		_, err := dbMap.Update(du.defaultUserCore)
+		return err
+	}
+	return dbMap.Insert(du.defaultUserCore)
+}
+
+func FindUserWithId(id int, dbMap *DataMapper) (User, error) {
+	duc := &defaultUserCore{Id: id}
+	err := dbMap.SelectOne(duc, "SELECT * FROM users WHERE id = ?", duc.Id)
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-	return u, nil
+	return &defaultUser{duc}, nil
 }
 
-func FindUserWithEmail(email string) (User, error) {
-	u := &defaultUser{&defaultUserCore{Email: email}}
-	if err := find(u); err != nil {
+func FindUserWithEmail(email string, dbMap *DataMapper) (User, error) {
+	duc := &defaultUserCore{Email: email}
+	err := dbMap.SelectOne(duc, "SELECT * FROM users WHERE email = ?", duc.Email)
+	if err != nil {
 		return nil, err
 	}
-	return u, nil
+	return &defaultUser{duc}, nil
 }
 
-func FindAllUsers() []User {
-	return make([]User, 0)
+func FindOrCreateUserWithEmail(email string, dbMap *DataMapper) (User, error) {
+	duc := &defaultUserCore{Email: email}
+	err := dbMap.SelectOne(duc, "SELECT * FROM users WHERE email = ?", duc.Email)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	return &defaultUser{duc}, nil
 }
 
-////----------------------------------------
-//// A user implementation
-////----------------------------------------
-//
-//type baseUser struct {
-//	Id bson.ObjectId "_id"
-//
-//	Name string
-//
-//	Email string
-//
-//	Comment string
-//
-//	IsActive bool
-//
-//	CreatedAt time.Time
-//
-//	UpdatedAt time.Time
-//
-//	ActivatedAt time.Time
-//}
-//
-//// NOTE: this will change the receiver. Use carfully.
-//func (bu *baseUser) reloadFromDataStore(sess Session) error {
-//	// We can select with Id or Email. One of them is required
-//	var selector bson.M
-//	if bu.Email != "" {
-//		selector = bson.M{"email": bu.Email}
-//	} else {
-//		selector = bson.M{"_id": bu.Id}
-//	}
-//	if err := sess.Find(bu, selector, USER_COLLECTION_NAME); err != nil {
-//		return err
-//	}
-//	return nil
-//}
-//
-//func (bu *baseUser) mergeWith(saved *baseUser) {
-//	bu.Id = saved.Id
-//}
-//
-//func (bu *baseUser) ObjectId() bson.ObjectId {
-//	return bu.Id
-//}
-//
-//func (bu *baseUser) Keys() KeyCollection {
-//	return newKeyCollection(uint8(20), bu.Id.Hex(), 0)
-//}
-//
-//func (bu *baseUser) Save(sess Session) error {
-//	if !bu.Id.Valid() {
-//		bu.Id = bson.NewObjectId()
-//		return sess.Save(bu, USER_COLLECTION_NAME)
-//	}
-//	return sess.Update(bu, USER_COLLECTION_NAME)
-//}
-//
-//func (bu *baseUser) Activate() error {
-//	bu.IsActive = true
-//	if bu.ActivatedAt.IsZero() {
-//		bu.ActivatedAt = time.Now().UTC()
-//	}
-//
-//	sess := newSession()
-//	defer sess.Close()
-//
-//	return bu.Save(sess)
-//}
-//
-//type user struct {
-//	*baseUser
-//}
-//
-//func (u *user) Id() string {
-//	return u.baseUser.Id.Hex()
-//}
-//
-//func (u *user) Name() string {
-//	return u.baseUser.Name
-//}
-//
-//func (u *user) Email() string {
-//	return u.baseUser.Email
-//}
-//
-//func (u *user) Comment() string {
-//	return u.baseUser.Comment
-//}
-//
-//func (u *user) Active() bool {
-//	return u.baseUser.IsActive
-//}
-//
-//func (u *user) ImageURL() string {
-//	email := strings.ToLower(strings.TrimSpace(u.Email()))
-//	h := md5.New()
-//	io.WriteString(h, email)
-//	return fmt.Sprintf("//www.gravatar.com/avatar/%x?s=64&d=wavatar", h.Sum(nil))
-//}
-//
-//func (u *user) CreatedAt() time.Time {
-//	return u.baseUser.CreatedAt
-//}
-//
-//func (u *user) UpdatedAt() time.Time {
-//	return u.baseUser.UpdatedAt
-//}
-//
-//func (u *user) ActivatedAt() time.Time {
-//	return u.baseUser.ActivatedAt
-//}
-//
-//func (u *user) EncryptMessage(message, subject, sender string) (map[string]Message, error) {
-//	// First get the keys for this user
-//	kc := u.Keys()
-//
-//	okCh := make(chan encryptionResult)
-//	errCh := make(chan error)
-//	total := 0
-//
-//	// Loop over the keys and create go routines to encrypt messages per key
-//	for k, err := kc.Next(); k != nil && err == nil; k, err = kc.Next() {
-//
-//		total++
-//
-//		go func(message, subject, sender string, k Key) {
-//
-//			encrypted, err := k.EncryptMessage(message, subject, sender)
-//			if err != nil {
-//				errCh <- err
-//				return
-//			}
-//			okCh <- encryptionResult{
-//				key:     k.Fingerprint(),
-//				message: encrypted,
-//			}
-//
-//		}(message, subject, sender, k)
-//
-//	}
-//
-//	numOk := 0
-//	numErr := 0
-//	ret := make(map[string]Message)
-//	errors := make([]error, 0)
-//
-//	for numOk+numErr < total {
-//		select {
-//		case encResult := <-okCh:
-//			numOk++
-//			ret[encResult.key] = encResult.message
-//			break
-//
-//		case err := <-errCh:
-//			numErr++
-//			log.Println("An error occured when trying to encrypt message")
-//			log.Println(err)
-//			errors = append(errors, err)
-//			break
-//		}
-//	}
-//
-//	// TODO: Return an `EncryptionResult` object that can contain errors and result data
-//	//       This way the caller can decide what is to be treated as an error.
-//	if numErr > 0 {
-//		return nil, errors[0]
-//	}
-//	return ret, nil
-//}
+func FindAllUsers(dbMap *DataMapper) ([]User, error) {
+	var users []*defaultUserCore
+	_, err := dbMap.Select(&users, "SELECT * FROM users ORDER BY id ASC")
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	var ret []User
+	for _, u := range users {
+		ret = append(ret, &defaultUser{u})
+	}
+	return ret, nil
+}

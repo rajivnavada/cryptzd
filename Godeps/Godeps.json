@@ -1,9 +1,7 @@
 {
 	"ImportPath": "cryptz",
 	"GoVersion": "go1.6",
-	"Packages": [
-		"./..."
-	],
+	"GodepVersion": "v74",
 	"Deps": [
 		{
 			"ImportPath": "github.com/gorilla/context",
@@ -26,16 +24,13 @@
 			"Rev": "e2e3d8414d0fbae04004f151979f4e27c6747fe7"
 		},
 		{
-			"ImportPath": "golang.org/x/net/websocket",
-			"Rev": "e7da8edaa52631091740908acaf2c2d4c9b3ce90"
+			"ImportPath": "github.com/mattn/go-sqlite3",
+			"Comment": "v1.1.0-71-ge118d44",
+			"Rev": "e118d4451349065b8e7ce0f0af32e033995363f8"
 		},
 		{
-			"ImportPath": "gopkg.in/alexcesaro/quotedprintable.v3",
-			"Rev": "2caba252f4dc53eaf6b553000885530023f54623"
-		},
-		{
-			"ImportPath": "gopkg.in/check.v1",
-			"Rev": "4f90aeace3a26ad7021961c297b22c42160c7b25"
+			"ImportPath": "github.com/rajivnavada/gpgme",
+			"Rev": "4cccb284d801252426dd68043ea70311f62ace72"
 		},
 		{
 			"ImportPath": "gopkg.in/gomail.v2",
@@ -43,28 +38,9 @@
 			"Rev": "5ceb8e65415e45e1262fb385212b8193b55c0f99"
 		},
 		{
-			"ImportPath": "gopkg.in/mgo.v2",
-			"Comment": "r2016.02.04",
-			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
-		},
-		{
-			"ImportPath": "gopkg.in/mgo.v2/bson",
-			"Comment": "r2016.02.04",
-			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
-		},
-		{
-			"ImportPath": "gopkg.in/mgo.v2/internal/sasl",
-			"Comment": "r2016.02.04",
-			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
-		},
-		{
-			"ImportPath": "gopkg.in/mgo.v2/internal/scram",
-			"Comment": "r2016.02.04",
-			"Rev": "d90005c5262a3463800497ea5a89aed5fe22c886"
-		},
-		{
-			"ImportPath": "gopkg.in/yaml.v2",
-			"Rev": "a83829b6f1293c91addabc89d0571c246397bbf4"
+			"ImportPath": "gopkg.in/gorp.v1",
+			"Comment": "v1.7.1",
+			"Rev": "c87af80f3cc5036b55b83d77171e156791085e2e"
 		}
 	]
 }

@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Init services
-	crypto.InitService(*sqliteFilePath)
+	crypto.InitService(*sqliteFilePath, *debug)
 	mail.InitService(*appEmail, os.Getenv(*appEmailPasswordEnvName))
 
 	// start the connection hub for websocket stuff

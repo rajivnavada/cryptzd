@@ -33,7 +33,7 @@ var upgrader = websocket.Upgrader{
 }
 
 type fingerprint string
-type userId string
+type userId int
 
 // hub maintains the set of active connections and broadcasts messages to the
 // connections.
@@ -42,7 +42,7 @@ type Hub struct {
 	connections map[fingerprint]*connection
 
 	// Channel to broadcast messages to connected users
-	broadcastMessage chan map[string]crypto.Message
+	broadcastMessage chan map[string]crypto.EncryptedMessage
 
 	// Channel to broadcast new user activations
 	broadcastUser chan messagesTemplateExtensions
@@ -55,7 +55,7 @@ type Hub struct {
 }
 
 var H = Hub{
-	broadcastMessage: make(chan map[string]crypto.Message),
+	broadcastMessage: make(chan map[string]crypto.EncryptedMessage),
 	broadcastUser:    make(chan messagesTemplateExtensions),
 	register:         make(chan *connection),
 	unregister:       make(chan *connection),
@@ -93,7 +93,7 @@ func (h *Hub) Run() {
 					var buf *bytes.Buffer
 					var err error
 					if c.isCLI {
-						buf = bytes.NewBufferString(m.Text())
+						buf = bytes.NewBufferString(m.Cipher())
 						err = nil
 					} else {
 						buf = &bytes.Buffer{}

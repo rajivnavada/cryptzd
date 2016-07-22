@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -90,6 +91,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 
 	so := &SessionObject{
 		UserId:          user.Id(),
+		KeyId:           key.Id(),
 		UserName:        user.Name(),
 		UserEmail:       user.Email(),
 		KeyFingerprint:  key.Fingerprint(),
@@ -185,27 +187,30 @@ func Activation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := crypto.FindKeyWithFingerprint(sess.KeyFingerprint)
+	dbMap, err := crypto.NewDataMapper()
+	if !assertErrorIsNil(w, err, "Error creating instance of crypto.DataMapper") {
+		return
+	}
+	defer dbMap.Close()
+
+	key, err := crypto.FindPublicKeyWithFingerprint(sess.KeyFingerprint, dbMap)
 	if !assertErrorIsNil(w, err, "Error finding key with fingerprint"+sess.KeyFingerprint) {
 		return
 	}
 
-	err = key.Activate()
+	key.Activate()
+	err = key.Save(dbMap)
 	if !assertErrorIsNil(w, err, "Error activating key") {
 		return
 	}
 
-	currentUser, err := sess.User()
+	currentUser, err := sess.User(dbMap)
 	if !assertErrorIsNil(w, err, "Error getting current logged in user") {
 		return
 	}
 
-	if err = currentUser.Activate(); !assertErrorIsNil(w, err, "Error activating user") {
-		return
-	}
-
 	// If the user was newly activated we need to broadcast it to others
-	if currentUser.ActivatedAt().After(startTime) {
+	if key.ActivatedAt().After(startTime) {
 		H.broadcastUser <- messagesTemplateExtensions{
 			Session:              nil,
 			Messages:             nil,
@@ -265,13 +270,19 @@ func WebsocketWithFingerprint(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fpr := vars["fingerprint"]
 
-	key, err := crypto.FindKeyWithFingerprint(fpr)
+	dbMap, err := crypto.NewDataMapper()
+	if !assertErrorIsNil(w, err, "Error creating instance of crypto.DataMapper") {
+		return
+	}
+	defer dbMap.Close()
+
+	key, err := crypto.FindPublicKeyWithFingerprint(fpr, dbMap)
 	if !assertErrorIsNil(w, err, "Error finding key with fingerprint "+fpr) {
 		return
 	}
 
 	// Get the userId from the key
-	uid := key.User().Id()
+	uid := key.User(dbMap).Id()
 
 	// Upgrades the connection to a websocket connection and registers the user in a users map
 	wsConn, err := upgrader.Upgrade(w, r, nil)
@@ -293,19 +304,26 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		logError(err, "Could not create instance of DataMapper")
+		return
+	}
+	defer dbMap.Close()
+
 	// This is the landing page after login. It should send the initial set of messages
-	key, err := crypto.FindKeyWithFingerprint(sess.KeyFingerprint)
+	key, err := crypto.FindPublicKeyWithFingerprint(sess.KeyFingerprint, dbMap)
 	if !assertErrorIsNil(w, err, "Error finding key with fingerprint"+sess.KeyFingerprint) {
 		return
 	}
 
 	// Get the message collection and use it to render template of user messages
-	mc, err := key.Messages().Slice()
+	mc, err := key.Messages(dbMap)
 	if !assertErrorIsNil(w, err, "Error extracting messages for a key") {
 		return
 	}
 
-	uc, err := crypto.FindAllUsers().Slice()
+	uc, err := crypto.FindAllUsers(dbMap)
 	if !assertErrorIsNil(w, err, "Error extracting all users") {
 		return
 	}
@@ -336,16 +354,28 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 
 	errs := make([]string, 0)
 
-	sender, err := sess.User()
+	dbMap, err := crypto.NewDataMapper()
+	if !assertErrorIsNil(w, err, "Error creating instance of crypto.DataMapper") {
+		return
+	}
+	defer dbMap.Close()
+
+	sender, err := sess.User(dbMap)
 	if err != nil {
 		logError(err, "Could not find sender with Email "+sess.UserEmail)
 		errs = append(errs, err.Error())
 	}
 
 	// Check userId
-	userId := strings.TrimSpace(r.FormValue(UserIdFormFieldName))
-	if userId == "" {
+	userIdStr := strings.TrimSpace(r.FormValue(UserIdFormFieldName))
+	if userIdStr == "" {
 		logError(MissingUserIdError, "No userId in request")
+		errs = append(errs, MissingUserIdError.Error())
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		logError(MissingUserIdError, "Could not convert userId to int")
 		errs = append(errs, MissingUserIdError.Error())
 	}
 
@@ -359,19 +389,19 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 	// Subject can be empty
 	subject := strings.TrimSpace(r.FormValue(SubjectFormFieldName))
 
-	toUser, err := crypto.FindUserWithId(userId)
+	toUser, err := crypto.FindUserWithId(userId, dbMap)
 	if err != nil {
-		logError(err, "Could not find user with Id "+userId)
+		logError(err, fmt.Sprintf("Could not find user with Id %d", userId))
 		errs = append(errs, err.Error())
 	}
 
 	if len(errs) == 0 {
-		encryptedMessage, err := toUser.EncryptMessage(message, subject, sender.Id())
+		encryptedMessages, err := toUser.EncryptAndSave(sender.Id(), message, subject, dbMap)
 		if err != nil {
 			logError(err, "Error occured when encrypting message for user")
 			errs = append(errs, err.Error())
 		} else {
-			H.broadcastMessage <- encryptedMessage
+			H.broadcastMessage <- encryptedMessages
 		}
 	}
 

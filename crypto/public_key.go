@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"database/sql"
 	"github.com/rajivnavada/gpgme"
+	"log"
 	"time"
 )
 
@@ -16,48 +18,6 @@ type defaultPublicKeyCore struct {
 	ExpiresAt   time.Time `db:"expires_at"`
 }
 
-func (dpkc *defaultPublicKeyCore) reloadFromDataStore(sess Session) error {
-	return NotImplementedError
-}
-
-func (dpkc *defaultPublicKeyCore) mergeWith(saved *defaultPublicKeyCore) {
-	return NotImplementedError
-}
-
-func (dpkc *defaultPublicKeyCore) Save(sess Session) error {
-	return NotImplementedError
-}
-
-func (dpkc *defaultPublicKeyCore) Encrypt(msg string) (string, error) {
-	cipher, err := gpgme.EncryptMessage(msg, dpkc.Fingerprint)
-	if err != nil {
-		return "", err
-	}
-	return cipher, nil
-}
-
-func (dpkc *defaultPublicKeyCore) EncryptAndSave(s, subject, sender string) (Message, error) {
-	cipher, err := gpgme.EncryptMessage(s, dpkc.Fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: save message
-	return nil, nil
-}
-
-func (dpkc *defaultPublicKeyCore) Activate() error {
-	if dpkc.ActivatedAt.IsZero() {
-		dpkc.ActivatedAt = time.Now().UTC()
-	}
-	// TODO: save the entity
-	return nil
-}
-
-func (dpkc *defaultPublicKeyCore) Messages() MessageCollection {
-	return nil
-}
-
 type defaultPublicKey struct {
 	*defaultPublicKeyCore
 }
@@ -70,12 +30,20 @@ func (k defaultPublicKey) UserId() int {
 	return k.defaultPublicKeyCore.UserId
 }
 
+func (k *defaultPublicKey) SetUserId(uid int) {
+	k.defaultPublicKeyCore.UserId = uid
+}
+
 func (k defaultPublicKey) Fingerprint() string {
 	return k.defaultPublicKeyCore.Fingerprint
 }
 
-func (k defaultPublicKey) KeyData() string {
+func (k defaultPublicKey) KeyData() []byte {
 	return k.defaultPublicKeyCore.KeyData
+}
+
+func (k *defaultPublicKey) SetKeyData(d []byte) {
+	k.defaultPublicKeyCore.KeyData = d
 }
 
 func (k defaultPublicKey) Active() bool {
@@ -98,8 +66,15 @@ func (k defaultPublicKey) ExpiresAt() time.Time {
 	return k.defaultPublicKeyCore.ExpiresAt
 }
 
-func (k defaultPublicKey) User() User {
-	u, err := FindUserWithId(k.defaultPublicKeyCore.UserId)
+func (k *defaultPublicKey) SetExpiresAt(t time.Time) {
+	k.defaultPublicKeyCore.ExpiresAt = t
+}
+
+func (k defaultPublicKey) User(dbMap *DataMapper) User {
+	if k.defaultPublicKeyCore.UserId == 0 {
+		return nil
+	}
+	u, err := FindUserWithId(k.defaultPublicKeyCore.UserId, dbMap)
 	if err != nil {
 		log.Println("An error occured when trying to retreive user")
 		log.Println(err)
@@ -108,18 +83,83 @@ func (k defaultPublicKey) User() User {
 	return u
 }
 
-func FindKeyWithId(id int) (Key, error) {
-	k := &defaultPublicKey{&defaultPublicKeyCore{Id: id}}
-	if err := find(k); err != nil {
-		return nil, err
+func (k defaultPublicKey) Encrypt(msg string) (string, error) {
+	cipher, err := gpgme.EncryptMessage(msg, k.Fingerprint())
+	if err != nil {
+		return "", err
 	}
-	return k, nil
+	return cipher, nil
 }
 
-func FindKeyWithFingerprint(fingerprint string) (Key, error) {
-	k := &defaultPublicKey{&defaultPublicKeyCore{Fingerprint: fingerprint}}
-	if err := find(k); err != nil {
+func (k defaultPublicKey) EncryptAndSave(senderId int, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
+	cipher, err := gpgme.EncryptMessage(t, k.Fingerprint())
+	if err != nil {
 		return nil, err
 	}
-	return k, nil
+
+	msg, err := newMessage(k.Id(), senderId, cipher, subject)
+	if err != nil {
+		return nil, err
+	}
+
+	err = msg.Save(dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (k *defaultPublicKey) Activate() {
+	if k.defaultPublicKeyCore.ActivatedAt.IsZero() {
+		k.defaultPublicKeyCore.ActivatedAt = time.Now().UTC()
+	}
+}
+
+func (k *defaultPublicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
+	var ret []EncryptedMessage
+	var messages []*encryptedMessageCore
+	_, err := dbMap.Select(&messages, "SELECT * FROM encrypted_messages WHERE public_key_id = ?", k.Id())
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range messages {
+		ret = append(ret, &encryptedMessage{m})
+	}
+	return ret, nil
+}
+
+func (k defaultPublicKey) Save(dbMap *DataMapper) error {
+	if k.Id() > 0 {
+		_, err := dbMap.Update(k.defaultPublicKeyCore)
+		return err
+	}
+	return dbMap.Insert(k.defaultPublicKeyCore)
+}
+
+func FindKeyWithId(id int, dbMap *DataMapper) (PublicKey, error) {
+	kc := &defaultPublicKeyCore{Id: id}
+	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE id = ?", kc.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &defaultPublicKey{kc}, nil
+}
+
+func FindPublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
+	kc := &defaultPublicKeyCore{Fingerprint: fingerprint}
+	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	return &defaultPublicKey{kc}, nil
+}
+
+func FindOrCreatePublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
+	kc := &defaultPublicKeyCore{Fingerprint: fingerprint}
+	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	return &defaultPublicKey{kc}, nil
 }

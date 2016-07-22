@@ -6,10 +6,35 @@ type encryptionResult struct {
 	err     error
 }
 
+func (er encryptionResult) Key() string {
+	return er.key
+}
+
+func (er encryptionResult) Message() EncryptedMessage {
+	return er.message
+}
+
+func (er encryptionResult) IsErr() bool {
+	return er.err != nil
+}
+
+func (er encryptionResult) Error() string {
+	if !er.IsErr() {
+		return ""
+	}
+	return er.err.Error()
+}
+
+type EncryptionResult interface {
+	Key() string
+	Message() EncryptedMessage
+	error
+}
+
 type encryptionResults []encryptionResult
 
-func (er encryptionResults) Add(r encryptionResult) {
-	er = append(er, r)
+func (er *encryptionResults) Add(r encryptionResult) {
+	*er = append(*er, r)
 }
 
 func (er encryptionResults) Size() int {

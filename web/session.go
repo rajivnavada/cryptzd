@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	sessionStore    sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11"))
-	sessionName                    = "ZecureSessions"
-	NilSessionError                = errors.New("SessionObject is nil")
+	sessionStore     sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11"))
+	sessionName                     = "ZecureSessions"
+	NilSessionError                 = errors.New("SessionObject is nil")
+	InvalidUserError                = errors.New("SessionObject has an invalid user email association")
 )
 
 const (
@@ -20,7 +21,8 @@ const (
 )
 
 type SessionObject struct {
-	UserId           string
+	UserId           int
+	KeyId            int
 	UserName         string
 	UserEmail        string
 	KeyFingerprint   string
@@ -30,7 +32,7 @@ type SessionObject struct {
 	user             crypto.User
 }
 
-func (so *SessionObject) IsCurrentUser(userId string) bool {
+func (so *SessionObject) IsCurrentUser(userId int) bool {
 	return so != nil && so.UserId == userId
 }
 
@@ -38,17 +40,22 @@ func (so *SessionObject) IsEmpty() bool {
 	return so == nil || so.ActivationExpiry.IsZero()
 }
 
-func (so *SessionObject) User() (crypto.User, error) {
+func (so *SessionObject) User(dbMap *crypto.DataMapper) (crypto.User, error) {
 	if so == nil {
 		return nil, NilSessionError
 	}
 	if so.user != nil {
 		return so.user, nil
 	}
-	user, err := crypto.FindUserWithEmail(so.UserEmail)
+
+	user, err := crypto.FindOrCreateUserWithEmail(so.UserEmail, dbMap)
 	if err != nil {
 		return nil, err
 	}
+	if user.Id() == 0 {
+		return nil, InvalidUserError
+	}
+
 	so.user = user
 	return so.user, err
 }

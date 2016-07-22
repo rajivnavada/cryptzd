@@ -8,7 +8,7 @@ import (
 
 type messagesTemplateExtensions struct {
 	Session              *SessionObject
-	Messages             []crypto.Message
+	Messages             []crypto.EncryptedMessage
 	Users                []crypto.User
 	CurrentUser          crypto.User
 	FormActionName       string
@@ -417,7 +417,7 @@ var messageTemplateHtml = `
 		<h4 class="media-heading">{{ .Subject }}</h4>
 		<p class="email">{{ .Sender.Name }} ({{ .Sender.Email }})</p>
 	</div>
-	<pre>{{ .Text }}</pre>
+	<pre>{{ .Cipher }}</pre>
 </div>
 {{ end }}`
 
