@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	sessionStore     sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11"))
+	sessionStore     sessions.Store = sessions.NewFilesystemStore("", []byte("zillow-hackweek-11&12"))
 	sessionName                     = "ZecureSessions"
 	NilSessionError                 = errors.New("SessionObject is nil")
 	InvalidUserError                = errors.New("SessionObject has an invalid user email association")
