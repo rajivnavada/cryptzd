@@ -6,11 +6,20 @@ import (
 	"gopkg.in/gorp.v1"
 )
 
-type DataMapper struct {
+type DataMapper interface {
+	SelectOne(o interface{}, query string, args ...interface{}) error
+	Select(o interface{}, query string, args ...interface{}) ([]interface{}, error)
+	Insert(o ...interface{}) error
+	Update(o ...interface{}) (int64, error)
+	Delete(o ...interface{}) (int64, error)
+	Close()
+}
+
+type dataMapper struct {
 	*gorp.DbMap
 }
 
-func NewDataMapper() (*DataMapper, error) {
+func NewDataMapper() (DataMapper, error) {
 	db, err := sql.Open("sqlite3", SqliteFilePath)
 	if err != nil {
 		return nil, err
@@ -30,9 +39,9 @@ func NewDataMapper() (*DataMapper, error) {
 	dbMap.AddTableWithName(projectCredentialKeyCore{}, "project_credential_keys").SetKeys(true, "Id")
 	dbMap.AddTableWithName(projectCredentialValueCore{}, "project_credential_values").SetKeys(true, "Id")
 
-	return &DataMapper{dbMap}, nil
+	return &dataMapper{dbMap}, nil
 }
 
-func (d *DataMapper) Close() {
+func (d *dataMapper) Close() {
 	d.DbMap.Db.Close()
 }

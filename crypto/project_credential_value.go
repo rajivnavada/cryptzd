@@ -56,7 +56,7 @@ func (pv projectCredentialValue) ExpiresAt() time.Time {
 	return pv.projectCredentialValueCore.ExpiresAt
 }
 
-func (pv projectCredentialValue) Save(dbMap *DataMapper) error {
+func (pv projectCredentialValue) Save(dbMap DataMapper) error {
 	if pv.Id() > 0 {
 		_, err := dbMap.Update(pv.projectCredentialValueCore)
 		return err
@@ -77,7 +77,7 @@ func NewProjectCredentialValue(credentialId, memberId, keyId int, cipher []byte)
 	}}
 }
 
-func FindProjectCredentialValueForPublicKey(publicKeyId, credentialId int, dbMap *DataMapper) (ProjectCredentialValue, error) {
+func FindProjectCredentialValueForPublicKey(publicKeyId, credentialId int, dbMap DataMapper) (ProjectCredentialValue, error) {
 	pkv := &projectCredentialValueCore{CredentialId: credentialId, PublicKeyId: publicKeyId}
 	err := dbMap.SelectOne(pkv, "SELECT * FROM project_credential_values WHERE credential_id = ? AND public_key_id = ?", pkv.CredentialId, pkv.PublicKeyId)
 	if err != nil {

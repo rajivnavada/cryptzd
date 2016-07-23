@@ -48,7 +48,7 @@ func (p project) UpdatedAt() time.Time {
 	return p.projectCore.UpdatedAt
 }
 
-func (p project) Members(dbMap *DataMapper) ([]ProjectMember, error) {
+func (p project) Members(dbMap DataMapper) ([]ProjectMember, error) {
 	var ret []ProjectMember
 	var members []*projectMemberCore
 	_, err := dbMap.Select(&members, "SELECT * FROM project_members WHERE project_id = ? ORDER BY created_at ASC", p.Id())
@@ -61,7 +61,7 @@ func (p project) Members(dbMap *DataMapper) ([]ProjectMember, error) {
 	return ret, nil
 }
 
-func (p project) AddMember(userId int, dbMap *DataMapper) (ProjectMember, error) {
+func (p project) AddMember(userId int, dbMap DataMapper) (ProjectMember, error) {
 	// Use p.Id() and userId to locate a member record.
 	pm, err := FindProjectMemberWithUserId(userId, p.Id(), dbMap)
 	if err != nil && err != sql.ErrNoRows {
@@ -78,7 +78,7 @@ func (p project) AddMember(userId int, dbMap *DataMapper) (ProjectMember, error)
 	return pm, nil
 }
 
-func (p project) RemoveMember(userId int, dbMap *DataMapper) error {
+func (p project) RemoveMember(userId int, dbMap DataMapper) error {
 	// Find the member using p.Id() and userId
 	pm, err := FindProjectMemberWithUserId(userId, p.Id(), dbMap)
 	if err != nil && err != sql.ErrNoRows {
@@ -93,7 +93,7 @@ func (p project) RemoveMember(userId int, dbMap *DataMapper) error {
 	return err
 }
 
-func (p project) Credentials(dbMap *DataMapper) ([]ProjectCredentialKey, error) {
+func (p project) Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error) {
 	var ret []ProjectCredentialKey
 	var creds []*projectCredentialKeyCore
 	_, err := dbMap.Select(&creds, "SELECT * FROM project_credentials WHERE project_id = ? ORDER BY created_at ASC", p.Id())
@@ -106,7 +106,7 @@ func (p project) Credentials(dbMap *DataMapper) ([]ProjectCredentialKey, error) 
 	return ret, nil
 }
 
-func (p project) AddCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error) {
+func (p project) AddCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
 	// Figure out if the combo of key & p.Id exists
 	// If it exists, update the value record
 	// Else create a new credential key record
@@ -114,14 +114,14 @@ func (p project) AddCredential(key, value string, dbMap *DataMapper) (ProjectCre
 	return nil, NotImplementedError
 }
 
-func (p project) UpdateCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error) {
+func (p project) UpdateCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
 	// Get the key record using key & p.Id combo
 	// if key does not exist, return error
 	// if key exists, create a value record for each project member
 	return nil, NotImplementedError
 }
 
-func (p project) RemoveCredential(key string, dbMap *DataMapper) error {
+func (p project) RemoveCredential(key string, dbMap DataMapper) error {
 	// Find the member using p.Id() and userId
 	pk, err := FindProjectCredentialKey(key, p.Id(), dbMap)
 	if err != nil && err != sql.ErrNoRows {
@@ -136,7 +136,7 @@ func (p project) RemoveCredential(key string, dbMap *DataMapper) error {
 	return err
 }
 
-func (p project) Save(dbMap *DataMapper) error {
+func (p project) Save(dbMap DataMapper) error {
 	if p.Id() > 0 {
 		_, err := dbMap.Update(p.projectCore)
 		return err

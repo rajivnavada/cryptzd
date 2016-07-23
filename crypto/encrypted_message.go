@@ -16,7 +16,7 @@ type encryptedMessageCore struct {
 	sender User `db:"-"`
 }
 
-func (e *encryptedMessageCore) loadSender(dbMap *DataMapper) error {
+func (e *encryptedMessageCore) loadSender(dbMap DataMapper) error {
 	u, err := FindUserWithId(e.SenderId, dbMap)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func (em *encryptedMessage) Sender() User {
 	return em.encryptedMessageCore.sender
 }
 
-func (em *encryptedMessage) Save(dbMap *DataMapper) error {
+func (em *encryptedMessage) Save(dbMap DataMapper) error {
 	if em.Id() > 0 {
 		_, err := dbMap.Update(em.encryptedMessageCore)
 		return err

@@ -36,7 +36,7 @@ func (pk projectCredentialKey) UpdatedAt() time.Time {
 	return pk.projectCredentialKeyCore.UpdatedAt
 }
 
-func (pk projectCredentialKey) Save(dbMap *DataMapper) error {
+func (pk projectCredentialKey) Save(dbMap DataMapper) error {
 	if pk.Id() > 0 {
 		_, err := dbMap.Update(pk.projectCredentialKeyCore)
 		return err
@@ -44,11 +44,11 @@ func (pk projectCredentialKey) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(pk.projectCredentialKeyCore)
 }
 
-func (pk projectCredentialKey) ValueForPublicKey(publicKeyId int, dbMap *DataMapper) (ProjectCredentialValue, error) {
+func (pk projectCredentialKey) ValueForPublicKey(publicKeyId int, dbMap DataMapper) (ProjectCredentialValue, error) {
 	return FindProjectCredentialValueForPublicKey(publicKeyId, pk.Id(), dbMap)
 }
 
-func FindProjectCredentialKey(key string, projectId int, dbMap *DataMapper) (ProjectCredentialKey, error) {
+func FindProjectCredentialKey(key string, projectId int, dbMap DataMapper) (ProjectCredentialKey, error) {
 	pkc := &projectCredentialKeyCore{Key: key, ProjectId: projectId}
 	err := dbMap.SelectOne(pkc, "SELECT * FROM project_credential_keys WHERE key = ? AND project_id = ?", pkc.Key, pkc.ProjectId)
 	if err != nil {

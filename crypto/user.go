@@ -53,7 +53,7 @@ func (u user) ImageURL() string {
 	return fmt.Sprintf("//www.gravatar.com/avatar/%x?s=64&d=wavatar", h.Sum(nil))
 }
 
-func (u user) PublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
+func (u user) PublicKeys(dbMap DataMapper) ([]PublicKey, error) {
 	var ret []PublicKey
 	var keys []*publicKeyCore
 	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND (expires_at = ? OR expires_at > ?) ORDER BY created_at ASC",
@@ -67,7 +67,7 @@ func (u user) PublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 	return ret, nil
 }
 
-func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
+func (u user) ActivePublicKeys(dbMap DataMapper) ([]PublicKey, error) {
 	var ret []PublicKey
 	var keys []*publicKeyCore
 	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND activated_at IS NOT NULL AND (expires_at = ? OR expires_at > ?) ORDER BY created_at ASC",
@@ -81,7 +81,7 @@ func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 	return ret, nil
 }
 
-func (u user) EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error) {
+func (u user) EncryptAndSave(sender User, message, subject string, dbMap DataMapper) (map[string]EncryptedMessage, error) {
 	kc, err := u.ActivePublicKeys(dbMap)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (u user) EncryptAndSave(sender User, message, subject string, dbMap *DataMa
 	// Loop over the keys and create go routines to encrypt messages per key
 	for _, k := range kc {
 
-		go func(sender User, message, subject string, dbMap *DataMapper, k PublicKey) {
+		go func(sender User, message, subject string, dbMap DataMapper, k PublicKey) {
 
 			er := encryptionResult{key: k.Fingerprint()}
 			encrypted, err := k.EncryptAndSave(sender, message, subject, dbMap)
@@ -128,7 +128,7 @@ func (u user) EncryptAndSave(sender User, message, subject string, dbMap *DataMa
 	return ret, nil
 }
 
-func (u user) Save(dbMap *DataMapper) error {
+func (u user) Save(dbMap DataMapper) error {
 	if u.Id() > 0 {
 		_, err := dbMap.Update(u.userCore)
 		return err
@@ -136,7 +136,7 @@ func (u user) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(u.userCore)
 }
 
-func FindUserWithId(id int, dbMap *DataMapper) (User, error) {
+func FindUserWithId(id int, dbMap DataMapper) (User, error) {
 	uc := &userCore{Id: id}
 	err := dbMap.SelectOne(uc, "SELECT * FROM users WHERE id = ?", uc.Id)
 	if err != nil && err != sql.ErrNoRows {
@@ -145,7 +145,7 @@ func FindUserWithId(id int, dbMap *DataMapper) (User, error) {
 	return &user{uc}, nil
 }
 
-func FindUserWithEmail(email string, dbMap *DataMapper) (User, error) {
+func FindUserWithEmail(email string, dbMap DataMapper) (User, error) {
 	uc := &userCore{Email: email}
 	err := dbMap.SelectOne(uc, "SELECT * FROM users WHERE email = ?", uc.Email)
 	if err != nil {
@@ -154,7 +154,7 @@ func FindUserWithEmail(email string, dbMap *DataMapper) (User, error) {
 	return &user{uc}, nil
 }
 
-func FindOrCreateUserWithEmail(email string, dbMap *DataMapper) (User, error) {
+func FindOrCreateUserWithEmail(email string, dbMap DataMapper) (User, error) {
 	uc := &userCore{Email: email}
 	err := dbMap.SelectOne(uc, "SELECT * FROM users WHERE email = ?", uc.Email)
 	if err != nil && err != sql.ErrNoRows {
@@ -163,7 +163,7 @@ func FindOrCreateUserWithEmail(email string, dbMap *DataMapper) (User, error) {
 	return &user{uc}, nil
 }
 
-func FindAllUsers(dbMap *DataMapper) ([]User, error) {
+func FindAllUsers(dbMap DataMapper) ([]User, error) {
 	var users []*userCore
 	_, err := dbMap.Select(&users, "SELECT * FROM users ORDER BY id ASC")
 	if err != nil && err != sql.ErrNoRows {

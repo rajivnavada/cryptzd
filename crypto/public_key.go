@@ -70,7 +70,7 @@ func (k *publicKey) SetExpiresAt(t time.Time) {
 	k.publicKeyCore.ExpiresAt = t
 }
 
-func (k publicKey) User(dbMap *DataMapper) User {
+func (k publicKey) User(dbMap DataMapper) User {
 	if k.publicKeyCore.UserId == 0 {
 		return nil
 	}
@@ -91,7 +91,7 @@ func (k publicKey) Encrypt(msg string) (string, error) {
 	return cipher, nil
 }
 
-func (k publicKey) EncryptAndSave(sender User, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
+func (k publicKey) EncryptAndSave(sender User, t, subject string, dbMap DataMapper) (EncryptedMessage, error) {
 	cipher, err := gpgme.EncryptMessage(t, k.Fingerprint())
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (k *publicKey) Activate() {
 	}
 }
 
-func (k *publicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
+func (k *publicKey) Messages(dbMap DataMapper) ([]EncryptedMessage, error) {
 	var ret []EncryptedMessage
 	var messages []*encryptedMessageCore
 	_, err := dbMap.Select(&messages, "SELECT * FROM encrypted_messages WHERE public_key_id = ? ORDER BY created_at DESC", k.Id())
@@ -134,7 +134,7 @@ func (k *publicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
 	return ret, nil
 }
 
-func (k publicKey) Save(dbMap *DataMapper) error {
+func (k publicKey) Save(dbMap DataMapper) error {
 	if k.Id() > 0 {
 		_, err := dbMap.Update(k.publicKeyCore)
 		return err
@@ -142,7 +142,7 @@ func (k publicKey) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(k.publicKeyCore)
 }
 
-func FindKeyWithId(id int, dbMap *DataMapper) (PublicKey, error) {
+func FindKeyWithId(id int, dbMap DataMapper) (PublicKey, error) {
 	kc := &publicKeyCore{Id: id}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE id = ?", kc.Id)
 	if err != nil {
@@ -151,7 +151,7 @@ func FindKeyWithId(id int, dbMap *DataMapper) (PublicKey, error) {
 	return &publicKey{kc}, nil
 }
 
-func FindPublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
+func FindPublicKeyWithFingerprint(fingerprint string, dbMap DataMapper) (PublicKey, error) {
 	kc := &publicKeyCore{Fingerprint: fingerprint}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
 	if err != nil {
@@ -160,7 +160,7 @@ func FindPublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (Public
 	return &publicKey{kc}, nil
 }
 
-func FindOrCreatePublicKeyWithFingerprint(fingerprint string, dbMap *DataMapper) (PublicKey, error) {
+func FindOrCreatePublicKeyWithFingerprint(fingerprint string, dbMap DataMapper) (PublicKey, error) {
 	kc := &publicKeyCore{Fingerprint: fingerprint}
 	err := dbMap.SelectOne(kc, "SELECT * FROM public_keys WHERE fingerprint = ?", kc.Fingerprint)
 	if err != nil && err != sql.ErrNoRows {
