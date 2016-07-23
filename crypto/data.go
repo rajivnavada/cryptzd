@@ -10,7 +10,7 @@ type Identifiable interface {
 
 type Saveable interface {
 	Identifiable
-	Save(dbMap *DataMapper) error
+	Save(dbMap DataMapper) error
 }
 
 type User interface {
@@ -26,9 +26,9 @@ type User interface {
 
 	ImageURL() string
 
-	PublicKeys(dbMap *DataMapper) ([]PublicKey, error)
-	ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error)
-	EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error)
+	PublicKeys(dbMap DataMapper) ([]PublicKey, error)
+	ActivePublicKeys(dbMap DataMapper) ([]PublicKey, error)
+	EncryptAndSave(sender User, message, subject string, dbMap DataMapper) (map[string]EncryptedMessage, error)
 }
 
 type PublicKey interface {
@@ -52,10 +52,10 @@ type PublicKey interface {
 	Active() bool
 
 	Activate()
-	User(dbMap *DataMapper) User
-	Messages(dbMap *DataMapper) ([]EncryptedMessage, error)
+	User(dbMap DataMapper) User
+	Messages(dbMap DataMapper) ([]EncryptedMessage, error)
 	Encrypt(string) (string, error)
-	EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (EncryptedMessage, error)
+	EncryptAndSave(sender User, message, subject string, dbMap DataMapper) (EncryptedMessage, error)
 }
 
 type EncryptedMessage interface {
@@ -79,14 +79,14 @@ type Project interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	Members(dbMap *DataMapper) ([]ProjectMember, error)
-	AddMember(userId int, dbMap *DataMapper) (ProjectMember, error)
-	RemoveMember(userId int, dbMap *DataMapper) error
+	Members(dbMap DataMapper) ([]ProjectMember, error)
+	AddMember(userId int, dbMap DataMapper) (ProjectMember, error)
+	RemoveMember(userId int, dbMap DataMapper) error
 
-	Credentials(dbMap *DataMapper) ([]ProjectCredentialKey, error)
-	AddCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error)
-	UpdateCredential(key, value string, dbMap *DataMapper) (ProjectCredentialKey, error)
-	RemoveCredential(key string, dbMap *DataMapper) error
+	Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error)
+	AddCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error)
+	UpdateCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error)
+	RemoveCredential(key string, dbMap DataMapper) error
 }
 
 type ProjectMember interface {
@@ -98,7 +98,7 @@ type ProjectMember interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	User(dbMap *DataMapper) (User, error)
+	User(dbMap DataMapper) (User, error)
 }
 
 type ProjectCredentialKey interface {
@@ -109,7 +109,7 @@ type ProjectCredentialKey interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
-	ValueForPublicKey(publicKeyId int, dbMap *DataMapper) (ProjectCredentialValue, error)
+	ValueForPublicKey(publicKeyId int, dbMap DataMapper) (ProjectCredentialValue, error)
 }
 
 type ProjectCredentialValue interface {

@@ -42,6 +42,7 @@ func ImportKeyAndUser(publicKey string) (PublicKey, User, error) {
 			}
 			u.SetName(ki.Name())
 			u.SetComment(ki.Comment())
+
 			err = u.Save(dbMap)
 			if err != nil {
 				return nil, nil, err

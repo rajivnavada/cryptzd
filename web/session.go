@@ -40,7 +40,7 @@ func (so *SessionObject) IsEmpty() bool {
 	return so == nil || so.ActivationExpiry.IsZero()
 }
 
-func (so *SessionObject) User(dbMap *crypto.DataMapper) (crypto.User, error) {
+func (so *SessionObject) User(dbMap crypto.DataMapper) (crypto.User, error) {
 	if so == nil {
 		return nil, NilSessionError
 	}

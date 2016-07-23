@@ -41,11 +41,11 @@ func (pm projectMember) UpdatedAt() time.Time {
 	return pm.projectMemberCore.UpdatedAt
 }
 
-func (pm projectMember) User(dbMap *DataMapper) (User, error) {
+func (pm projectMember) User(dbMap DataMapper) (User, error) {
 	return FindUserWithId(pm.UserId(), dbMap)
 }
 
-func (pm projectMember) Save(dbMap *DataMapper) error {
+func (pm projectMember) Save(dbMap DataMapper) error {
 	if pm.Id() > 0 {
 		_, err := dbMap.Update(pm.projectMemberCore)
 		return err
@@ -53,7 +53,7 @@ func (pm projectMember) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(pm.projectMemberCore)
 }
 
-func FindProjectMemberWithUserId(userId, projectId int, dbMap *DataMapper) (ProjectMember, error) {
+func FindProjectMemberWithUserId(userId, projectId int, dbMap DataMapper) (ProjectMember, error) {
 	pm := &projectMemberCore{UserId: userId, ProjectId: projectId}
 	err := dbMap.SelectOne(pm, "SELECT * FROM project_members WHERE user_id = ? AND project_id = ?", pm.UserId, pm.ProjectId)
 	if err != nil {
