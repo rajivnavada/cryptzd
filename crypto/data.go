@@ -9,11 +9,11 @@ type Identifiable interface {
 }
 
 type Saveable interface {
+	Identifiable
 	Save(dbMap *DataMapper) error
 }
 
 type User interface {
-	Identifiable
 	Saveable
 
 	Name() string
@@ -32,7 +32,6 @@ type User interface {
 }
 
 type PublicKey interface {
-	Identifiable
 	Saveable
 
 	UserId() int
@@ -60,7 +59,6 @@ type PublicKey interface {
 }
 
 type EncryptedMessage interface {
-	Identifiable
 	Saveable
 
 	PublicKeyId() int
@@ -73,7 +71,6 @@ type EncryptedMessage interface {
 }
 
 type Project interface {
-	Identifiable
 	Saveable
 
 	Name() string
@@ -93,7 +90,6 @@ type Project interface {
 }
 
 type ProjectMember interface {
-	Identifiable
 	Saveable
 
 	ProjectId() int
@@ -106,7 +102,6 @@ type ProjectMember interface {
 }
 
 type ProjectCredentialKey interface {
-	Identifiable
 	Saveable
 
 	ProjectId() int
@@ -118,7 +113,6 @@ type ProjectCredentialKey interface {
 }
 
 type ProjectCredentialValue interface {
-	Identifiable
 	Saveable
 
 	CredentialId() int
@@ -134,7 +128,6 @@ type ProjectCredentialValue interface {
 }
 
 type UserCredential interface {
-	Identifiable
 	Saveable
 
 	UserId() int

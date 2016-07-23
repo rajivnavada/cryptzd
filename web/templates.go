@@ -415,13 +415,23 @@ var messageTemplateHtml = `
 	</div>
 	<div class="media-body">
 		<h4 class="media-heading">{{ .Subject }}</h4>
-		<p class="email">{{ .Sender.Name }} ({{ .Sender.Email }})</p>
+		<p class="email">{{ .Sender.Name }} &lt;{{ .Sender.Email }}&gt;</p>
 	</div>
 	<pre>{{ printf "%s" .Cipher }}</pre>
 </div>
 {{ end }}`
 
 var messageTemplate *template.Template
+
+var messageTemplateText = `
+{{ define "Message" }}
+Subject: {{ .Subject }}
+From: {{ .Sender.Name }} <{{ .Sender.Email }}>
+
+{{ printf "%s" .Cipher }}
+{{ end }}`
+
+var messageTextTemplate *textTemplate.Template
 
 var userTemplateHtml = `
 {{ define "User" }}
@@ -506,6 +516,15 @@ func init() {
 		panic(err)
 	}
 	messageTemplate, err = messageTemplate.Parse(messageTemplateHtml)
+	if err != nil {
+		panic(err)
+	}
+
+	messageTextTemplate, err = textTemplate.New("messageText").Parse(`{{ template "Message" . }}`)
+	if err != nil {
+		panic(err)
+	}
+	messageTextTemplate, err = messageTextTemplate.Parse(messageTemplateText)
 	if err != nil {
 		panic(err)
 	}

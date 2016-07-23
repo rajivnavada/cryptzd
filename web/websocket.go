@@ -90,13 +90,11 @@ func (h *Hub) Run() {
 				// For each key, find if we have an active connection
 				if c, ok := h.connections[fingerprint(k)]; ok {
 					// Prepare a bytes buffer to collect the output
-					var buf *bytes.Buffer
+					buf := &bytes.Buffer{}
 					var err error
 					if c.isCLI {
-						buf = bytes.NewBuffer(m.Cipher())
-						err = nil
+						err = messageTextTemplate.Execute(buf, m)
 					} else {
-						buf = &bytes.Buffer{}
 						err = messageTemplate.Execute(buf, m)
 					}
 					// If there is an active connection, send message

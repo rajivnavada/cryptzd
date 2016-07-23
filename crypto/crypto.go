@@ -71,20 +71,6 @@ func ImportKeyAndUser(publicKey string) (PublicKey, User, error) {
 
 func InitService(sqliteFilePath string, debugMode bool) {
 	SqliteFilePath = sqliteFilePath
-
-	dbMap, err := NewDataMapper()
-	if err != nil {
-		panic(err)
-	}
-	defer dbMap.Close()
-
 	DebugMode = debugMode
-
-	// In non-debug environments we'll use migrations to generate tables
-	if DebugMode {
-		err = dbMap.CreateTablesIfNotExists()
-		if err != nil {
-			panic(err)
-		}
-	}
+	// Assuming the database will be created using external script
 }
