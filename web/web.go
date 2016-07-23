@@ -396,7 +396,7 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(errs) == 0 {
-		encryptedMessages, err := toUser.EncryptAndSave(sender.Id(), message, subject, dbMap)
+		encryptedMessages, err := toUser.EncryptAndSave(sender, message, subject, dbMap)
 		if err != nil {
 			logError(err, "Error occured when encrypting message for user")
 			errs = append(errs, err.Error())

@@ -91,13 +91,13 @@ func (k publicKey) Encrypt(msg string) (string, error) {
 	return cipher, nil
 }
 
-func (k publicKey) EncryptAndSave(senderId int, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
+func (k publicKey) EncryptAndSave(sender User, t, subject string, dbMap *DataMapper) (EncryptedMessage, error) {
 	cipher, err := gpgme.EncryptMessage(t, k.Fingerprint())
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := newMessage(k.Id(), senderId, []byte(cipher), subject)
+	msg, err := newMessage(k.Id(), sender.Id(), []byte(cipher), subject)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +107,7 @@ func (k publicKey) EncryptAndSave(senderId int, t, subject string, dbMap *DataMa
 		return nil, err
 	}
 
+	msg.encryptedMessageCore.sender = sender
 	return msg, nil
 }
 
@@ -119,7 +120,7 @@ func (k *publicKey) Activate() {
 func (k *publicKey) Messages(dbMap *DataMapper) ([]EncryptedMessage, error) {
 	var ret []EncryptedMessage
 	var messages []*encryptedMessageCore
-	_, err := dbMap.Select(&messages, "SELECT * FROM encrypted_messages WHERE public_key_id = ?", k.Id())
+	_, err := dbMap.Select(&messages, "SELECT * FROM encrypted_messages WHERE public_key_id = ? ORDER BY created_at DESC", k.Id())
 	if err != nil {
 		return nil, err
 	}

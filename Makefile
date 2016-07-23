@@ -27,6 +27,9 @@ key.pem:
 clean:
 	rm -f $(BIN)
 
+cleandb:
+	rm $(SQLFILE)
+
 seed:
 	sqlite3 -init $(SCHEMAFILE) $(SQLFILE) -version
 

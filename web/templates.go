@@ -417,7 +417,7 @@ var messageTemplateHtml = `
 		<h4 class="media-heading">{{ .Subject }}</h4>
 		<p class="email">{{ .Sender.Name }} ({{ .Sender.Email }})</p>
 	</div>
-	<pre>{{ .Cipher }}</pre>
+	<pre>{{ printf "%s" .Cipher }}</pre>
 </div>
 {{ end }}`
 

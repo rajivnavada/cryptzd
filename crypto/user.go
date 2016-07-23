@@ -54,14 +54,10 @@ func (u user) ImageURL() string {
 }
 
 func (u user) PublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
-	return make([]PublicKey, 0), nil
-}
-
-func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 	var ret []PublicKey
 	var keys []*publicKeyCore
-	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND activated_at IS NOT NULL AND expires_at > ? ORDER BY created_at ASC",
-		u.Id(), time.Now().UTC())
+	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND (expires_at = ? OR expires_at > ?) ORDER BY created_at ASC",
+		u.Id(), time.Time{}, time.Now().UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +67,21 @@ func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
 	return ret, nil
 }
 
-func (u user) EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error) {
+func (u user) ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error) {
+	var ret []PublicKey
+	var keys []*publicKeyCore
+	_, err := dbMap.Select(&keys, "SELECT * FROM public_keys WHERE user_id = ? AND activated_at IS NOT NULL AND (expires_at = ? OR expires_at > ?) ORDER BY created_at ASC",
+		u.Id(), time.Time{}, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range keys {
+		ret = append(ret, &publicKey{k})
+	}
+	return ret, nil
+}
+
+func (u user) EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error) {
 	kc, err := u.ActivePublicKeys(dbMap)
 	if err != nil {
 		return nil, err
@@ -81,10 +91,10 @@ func (u user) EncryptAndSave(senderId int, message, subject string, dbMap *DataM
 	// Loop over the keys and create go routines to encrypt messages per key
 	for _, k := range kc {
 
-		go func(senderId int, message, subject string, dbMap *DataMapper, k PublicKey) {
+		go func(sender User, message, subject string, dbMap *DataMapper, k PublicKey) {
 
 			er := encryptionResult{key: k.Fingerprint()}
-			encrypted, err := k.EncryptAndSave(senderId, message, subject, dbMap)
+			encrypted, err := k.EncryptAndSave(sender, message, subject, dbMap)
 			if err != nil {
 				er.err = err
 			} else {
@@ -92,7 +102,7 @@ func (u user) EncryptAndSave(senderId int, message, subject string, dbMap *DataM
 			}
 			ch <- er
 
-		}(senderId, message, subject, dbMap, k)
+		}(sender, message, subject, dbMap, k)
 
 	}
 

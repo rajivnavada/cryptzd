@@ -28,7 +28,7 @@ type User interface {
 
 	PublicKeys(dbMap *DataMapper) ([]PublicKey, error)
 	ActivePublicKeys(dbMap *DataMapper) ([]PublicKey, error)
-	EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error)
+	EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (map[string]EncryptedMessage, error)
 }
 
 type PublicKey interface {
@@ -56,7 +56,7 @@ type PublicKey interface {
 	User(dbMap *DataMapper) User
 	Messages(dbMap *DataMapper) ([]EncryptedMessage, error)
 	Encrypt(string) (string, error)
-	EncryptAndSave(senderId int, message, subject string, dbMap *DataMapper) (EncryptedMessage, error)
+	EncryptAndSave(sender User, message, subject string, dbMap *DataMapper) (EncryptedMessage, error)
 }
 
 type EncryptedMessage interface {
