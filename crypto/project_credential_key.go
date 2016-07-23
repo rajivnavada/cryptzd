@@ -44,8 +44,8 @@ func (pk projectCredentialKey) Save(dbMap *DataMapper) error {
 	return dbMap.Insert(pk.projectCredentialKeyCore)
 }
 
-func (pk projectCredentialKey) ValueForUser(userId int, dbMap *DataMapper) (ProjectCredentialValue, error) {
-	return nil, NotImplementedError
+func (pk projectCredentialKey) ValueForPublicKey(publicKeyId int, dbMap *DataMapper) (ProjectCredentialValue, error) {
+	return FindProjectCredentialValueForPublicKey(publicKeyId, pk.Id(), dbMap)
 }
 
 func FindProjectCredentialKey(key string, projectId int, dbMap *DataMapper) (ProjectCredentialKey, error) {

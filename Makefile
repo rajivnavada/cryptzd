@@ -2,8 +2,8 @@ CC = clang
 BIN = cryptz
 HOST = 127.0.0.1
 PORT = 8000
-MONGO_HOST = 127.0.0.1
-MONGO_DB_NAME = cryptz
+SCHEMAFILE = ./schema.sql
+SQLFILE = /usr/local/var/db/cryptz/cryptz.db
 
 all: $(BIN)
 
@@ -27,6 +27,9 @@ key.pem:
 clean:
 	rm -f $(BIN)
 
+seed:
+	sqlite3 -init $(SCHEMAFILE) $(SQLFILE) -version
+
 web: clean all cert.pem
-	exec ./$(BIN) -host $(HOST) -port $(PORT) -mongoHost $(MONGO_HOST) -mongoDbName $(MONGO_DB_NAME)
+	exec ./$(BIN) -host $(HOST) -port $(PORT) -db $(SQLFILE)
 

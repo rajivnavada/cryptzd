@@ -113,6 +113,8 @@ type ProjectCredentialKey interface {
 	Key() string
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
+
+	ValueForPublicKey(publicKeyId int, dbMap *DataMapper) (ProjectCredentialValue, error)
 }
 
 type ProjectCredentialValue interface {

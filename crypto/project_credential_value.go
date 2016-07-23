@@ -5,7 +5,7 @@ import (
 )
 
 type projectCredentialValueCore struct {
-	Id           int       `db:"int"`
+	Id           int       `db:"id"`
 	CredentialId int       `db:"credential_id"`
 	MemberId     int       `db:"member_id"`
 	PublicKeyId  int       `db:"public_key_id"`
@@ -75,4 +75,13 @@ func NewProjectCredentialValue(credentialId, memberId, keyId int, cipher []byte)
 		UpdatedAt:    currentTime,
 		ExpiresAt:    currentTime.AddDate(1, 0, 0),
 	}}
+}
+
+func FindProjectCredentialValueForPublicKey(publicKeyId, credentialId int, dbMap *DataMapper) (ProjectCredentialValue, error) {
+	pkv := &projectCredentialValueCore{CredentialId: credentialId, PublicKeyId: publicKeyId}
+	err := dbMap.SelectOne(pkv, "SELECT * FROM project_credential_values WHERE credential_id = ? AND public_key_id = ?", pkv.CredentialId, pkv.PublicKeyId)
+	if err != nil {
+		return nil, err
+	}
+	return &projectCredentialValue{pkv}, nil
 }
