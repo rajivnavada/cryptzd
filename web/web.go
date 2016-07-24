@@ -258,7 +258,7 @@ func Websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := newConnection(wsConn, userId(uid), fingerprint(sess.KeyFingerprint), false)
+	c := newConnection(wsConn, userId(uid), publicKeyId(sess.KeyId), fingerprint(sess.KeyFingerprint), false)
 	H.register <- c
 
 	go c.writePump()
@@ -290,7 +290,7 @@ func WebsocketWithFingerprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := newConnection(wsConn, userId(uid), fingerprint(fpr), true)
+	c := newConnection(wsConn, userId(uid), publicKeyId(key.Id()), fingerprint(fpr), true)
 	H.register <- c
 
 	go c.writePump()
