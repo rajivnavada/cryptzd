@@ -25,12 +25,6 @@ func (er encryptionResult) Error() string {
 	return er.err.Error()
 }
 
-type EncryptionResult interface {
-	Key() string
-	Message() EncryptedMessage
-	error
-}
-
 type encryptionResults []encryptionResult
 
 func (er *encryptionResults) Add(r encryptionResult) {

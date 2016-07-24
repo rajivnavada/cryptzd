@@ -88,7 +88,6 @@ func (p project) RemoveMember(userId int, dbMap DataMapper) error {
 		return nil
 	}
 	// If it exists, delete it
-	// TODO: make sure the deletes cascde to the project credential values
 	_, err = dbMap.Delete(pm)
 	return err
 }
@@ -131,7 +130,6 @@ func (p project) RemoveCredential(key string, dbMap DataMapper) error {
 		return nil
 	}
 	// If it exists, delete it
-	// TODO: make sure the deletes cascade to values
 	_, err = dbMap.Delete(pk)
 	return err
 }
@@ -142,4 +140,15 @@ func (p project) Save(dbMap DataMapper) error {
 		return err
 	}
 	return dbMap.Insert(p.projectCore)
+}
+
+func NewProject(name, environment, defaultAccessLevel string) Project {
+	if defaultAccessLevel == "" {
+		defaultAccessLevel = ACCESS_LEVEL_READ
+	}
+	return &project{&projectCore{
+		Name:               name,
+		Environment:        environment,
+		DefaultAccessLevel: defaultAccessLevel,
+	}}
 }

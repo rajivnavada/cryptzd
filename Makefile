@@ -1,11 +1,8 @@
-CC = clang
 BIN = cryptz
 HOST = 127.0.0.1
 PORT = 8000
 SCHEMAFILE = ./schema.sql
 SQLFILE = /usr/local/var/db/cryptz/cryptz.db
-
-all: $(BIN)
 
 format:
 	go fmt ./...
@@ -13,11 +10,8 @@ format:
 test:
 	go test ./...
 
-$(BIN):
-	CC=$(CC) go build -o $@ main.go
-
-install: $(BIN)
-	go install
+install:
+	go install .
 
 cert.pem: key.pem
 
@@ -26,6 +20,8 @@ key.pem:
 
 clean:
 	rm -f $(BIN)
+	rm -f $(GOPATH)/bin/$(BIN)
+	find $(GOPATH)/pkg -maxdepth 2 -type d -name "cryptz" -exec rm -rf {} \;
 
 cleandb:
 	rm $(SQLFILE)

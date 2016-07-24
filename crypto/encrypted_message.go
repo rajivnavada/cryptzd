@@ -61,7 +61,7 @@ func (em *encryptedMessage) Sender() User {
 	return em.encryptedMessageCore.sender
 }
 
-func (em *encryptedMessage) Save(dbMap DataMapper) error {
+func (em encryptedMessage) Save(dbMap DataMapper) error {
 	if em.Id() > 0 {
 		_, err := dbMap.Update(em.encryptedMessageCore)
 		return err

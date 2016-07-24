@@ -10,7 +10,6 @@ var (
 	SqliteFilePath                  = ""
 	NotImplementedError             = errors.New("Not implemented")
 	InvalidArgumentsForMessageError = errors.New("Some or all of the arguments provided to message constructor are invalid.")
-	StopIterationError              = errors.New("No more items to return")
 	MisconfiguredKeyError           = errors.New("email address in key does not match email address of user in database.")
 )
 
