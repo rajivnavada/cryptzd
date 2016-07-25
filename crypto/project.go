@@ -105,24 +105,23 @@ func (p project) Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error) {
 	return ret, nil
 }
 
+func (p project) GetCredential(key string, publicKeyId int, dbMap DataMapper) (ProjectCredentialValue, error) {
+	pk, err := FindProjectCredentialKey(key, p.Id(), dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return pk.ValueForPublicKey(publicKeyId, dbMap)
+}
+
 func (p project) SetCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
 	// Figure out if the combo of key & p.Id exists
-	pkc := &projectCredentialKeyCore{
-		ProjectId: p.Id(),
-		Key:       key,
-	}
-	pk := &projectCredentialKey{pkc}
-
-	err := dbMap.SelectOne(pkc, "SELECT * FROM project_credential_keys WHERE project_id = ? AND key = ?", pkc.ProjectId, pkc.Key)
+	pk, err := FindProjectCredentialKey(key, p.Id(), dbMap)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if err == sql.ErrNoRows {
-		currentTime := time.Now().UTC()
-		pkc.CreatedAt = currentTime
-		pkc.UpdatedAt = currentTime
-
-		pk = &projectCredentialKey{pkc}
+		pk = NewProjectCredentialKey(key, p.Id(), dbMap)
 		if err := pk.Save(dbMap); err != nil {
 			return nil, err
 		}
@@ -186,6 +185,15 @@ func (p project) Save(dbMap DataMapper) error {
 		return err
 	}
 	return dbMap.Insert(p.projectCore)
+}
+
+func FindProjectWithId(projectId int, dbMap DataMapper) (Project, error) {
+	pc := &projectCore{Id: projectId}
+	err := dbMap.SelectOne(pc, "SELECT * FROM projects WHERE id = ?", pc.Id)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	return &project{pc}, nil
 }
 
 func NewProject(name, environment, defaultAccessLevel string) Project {

@@ -56,3 +56,13 @@ func FindProjectCredentialKey(key string, projectId int, dbMap DataMapper) (Proj
 	}
 	return &projectCredentialKey{pkc}, nil
 }
+
+func NewProjectCredentialKey(key string, projectId int, dbMap DataMapper) ProjectCredentialKey {
+	currentTime := time.Now().UTC()
+	return &projectCredentialKey{&projectCredentialKeyCore{
+		ProjectId: projectId,
+		Key:       key,
+		CreatedAt: currentTime,
+		UpdatedAt: currentTime,
+	}}
+}

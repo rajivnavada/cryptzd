@@ -30,8 +30,9 @@ const (
 )
 
 var (
-	ErrDuplicateFingerprint    = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
-	ErrInvalidArgsForProjectOp = errors.New("Project operation received invalid arguments. Please make sure all required arguments are provided.")
+	ErrDuplicateFingerprint       = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
+	ErrInvalidArgsForProjectOp    = errors.New("Project operation received invalid arguments. Please make sure all required arguments are provided.")
+	ErrInvalidArgsForCredentialOp = errors.New("Credential operation received invalid arguments. Please make sure all required arguments are provided.")
 )
 
 var upgrader = websocket.Upgrader{
@@ -268,9 +269,27 @@ func (c *connection) readPump() {
 
 		} else if credOp != nil {
 
+			core := &pb.CredentialOperationResponse{
+				Command: credOp.Command,
+			}
+
+			result.ProjectOrCredentialResponse = &pb.Response_CredentialOpResponse{
+				CredentialOpResponse: core,
+			}
+
 			switch credOp.Command {
 			case pb.CredentialOperation_GET:
-				// SELECT the credential using the project_id and key_id
+				cred, err := c.getCredential(credOp)
+				if err != nil {
+					logError(err, "Error while creating project")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = ""
+					result.Error = ""
+					core.Credential = cred
+				}
 
 			case pb.CredentialOperation_SET:
 
@@ -360,6 +379,46 @@ func (c *connection) createProject(op *pb.ProjectOperation) (*pb.Project, error)
 	}
 	// Return the new project
 	return &ret, nil
+}
+
+func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
+	if !c.isCLI {
+		return nil, ErrInvalidArgsForCredentialOp
+	}
+	// Validate important input
+	projectId := int(op.Project)
+	key := strings.TrimSpace(op.Key)
+	// Make sure we have all the requirements to perform the operation
+	if projectId == 0 || key == "" {
+		return nil, ErrInvalidArgsForCredentialOp
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return nil, err
+	}
+	defer dbMap.Close()
+
+	// Create a project with name/environment.
+	p, err := crypto.FindProjectWithId(projectId, dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	pv, err := p.GetCredential(key, int(c.keyId), dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	cred := pb.Credential{
+		Id:     int32(pv.CredentialId()),
+		Key:    key,
+		Cipher: string(pv.Cipher()),
+	}
+
+	// Return the new project
+	return &cred, nil
 }
 
 func newConnection(wsConn *websocket.Conn, uid userId, keyId publicKeyId, fpr fingerprint, isCLI bool) *connection {
