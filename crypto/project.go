@@ -146,9 +146,12 @@ func NewProject(name, environment, defaultAccessLevel string) Project {
 	if defaultAccessLevel == "" {
 		defaultAccessLevel = ACCESS_LEVEL_READ
 	}
+	currentTime := time.Now().UTC()
 	return &project{&projectCore{
 		Name:               name,
 		Environment:        environment,
 		DefaultAccessLevel: defaultAccessLevel,
+		CreatedAt:          currentTime,
+		UpdatedAt:          currentTime,
 	}}
 }

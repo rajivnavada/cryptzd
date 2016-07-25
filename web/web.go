@@ -3,8 +3,8 @@ package web
 import (
 	"bytes"
 	"crypto/rand"
-	"cryptz/crypto"
-	"cryptz/mail"
+	"cryptzd/crypto"
+	"cryptzd/mail"
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"

@@ -1,7 +1,7 @@
 package web
 
 import (
-	"cryptz/crypto"
+	"cryptzd/crypto"
 	"html/template"
 	textTemplate "text/template"
 )

@@ -1,7 +1,7 @@
 package web
 
 import (
-	"cryptz/crypto"
+	"cryptzd/crypto"
 	"encoding/gob"
 	"errors"
 	"github.com/gorilla/sessions"

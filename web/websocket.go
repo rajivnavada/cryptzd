@@ -2,9 +2,13 @@ package web
 
 import (
 	"bytes"
-	"cryptz/crypto"
+	"cryptzd/crypto"
 	"errors"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	pb "github.com/rajivnavada/cryptz_pb"
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,7 +29,10 @@ const (
 	maxMessageSize = 4096
 )
 
-var DuplicateFingerprintError = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
+var (
+	ErrDuplicateFingerprint    = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
+	ErrInvalidArgsForProjectOp = errors.New("Project operation received invalid arguments. Please make sure all required arguments are provided.")
+)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  maxMessageSize * 2,
@@ -33,6 +40,7 @@ var upgrader = websocket.Upgrader{
 }
 
 type fingerprint string
+type publicKeyId int
 type userId int
 
 // hub maintains the set of active connections and broadcasts messages to the
@@ -72,7 +80,7 @@ func (h *Hub) Run() {
 			// If we are trying to register a connection for an existing fingerprint,
 			// close that connection first
 			if oldC, ok := h.connections[c.fingerprint]; ok {
-				logError(DuplicateFingerprintError, "Error maintaining connection with duplicate key")
+				logError(ErrDuplicateFingerprint, "Error maintaining connection with duplicate key")
 				delete(h.connections, c.fingerprint)
 				oldC.closeChan()
 			}
@@ -160,6 +168,8 @@ type connection struct {
 	// userId of the user this connection belongs to
 	userId userId
 
+	keyId publicKeyId
+
 	// fingerprint of the key used in this connection
 	fingerprint fingerprint
 
@@ -191,13 +201,90 @@ func (c *connection) readPump() {
 	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
-		_, _, err := c.ws.ReadMessage()
+		messageType, messageBody, err := c.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
 				logError(err, "Error in websocket readPump")
 			}
 			break
 		}
+
+		if messageType != websocket.BinaryMessage {
+			continue
+		}
+
+		// Unmarshal the message
+		opQuery := &pb.Operation{}
+		err = proto.Unmarshal(messageBody, opQuery)
+		if err != nil {
+			logError(err, "Error unmarshaling operation query in readPump")
+			continue
+		}
+
+		projectOp := opQuery.GetProjectOp()
+		credOp := opQuery.GetCredentialOp()
+		result := &pb.Response{}
+
+		// Perform the operation requested in the message (possibly by spawning a goroutine)
+		if projectOp != nil {
+
+			core := &pb.ProjectOperationResponse{
+				Command: projectOp.Command,
+			}
+
+			result.ProjectOrCredentialResponse = &pb.Response_ProjectOpResponse{
+				ProjectOpResponse: core,
+			}
+
+			switch projectOp.Command {
+			case pb.ProjectOperation_LIST:
+
+			case pb.ProjectOperation_CREATE:
+				project, err := c.createProject(projectOp)
+				if err != nil {
+					logError(err, "Error while creating project")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = fmt.Sprintf("Successfully created project with ID = %d", project.Id())
+					core.Project = &pb.Project{
+						Id:          int32(project.Id()),
+						Name:        project.Name(),
+						Environment: project.Environment(),
+					}
+				}
+
+			case pb.ProjectOperation_UPDATE:
+
+			case pb.ProjectOperation_DELETE:
+
+			case pb.ProjectOperation_ADD_MEMBER:
+
+			case pb.ProjectOperation_DELETE_MEMBER:
+
+			case pb.ProjectOperation_LIST_CREDENTIALS:
+			}
+
+		} else if credOp != nil {
+
+			switch credOp.Command {
+			case pb.CredentialOperation_GET:
+				// SELECT the credential using the project_id and key_id
+
+			case pb.CredentialOperation_SET:
+
+			case pb.CredentialOperation_DELETE:
+			}
+		}
+
+		// Send back the response by calling c.send
+		msg, err := proto.Marshal(result)
+		if err != nil {
+			logError(err, "Error while marshaling operation result")
+			continue
+		}
+		c.send <- msg
 	}
 }
 
@@ -224,7 +311,11 @@ func (c *connection) writePump() {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
-			if err := c.write(websocket.TextMessage, message); err != nil {
+			messageType := websocket.TextMessage
+			if c.isCLI {
+				messageType = websocket.BinaryMessage
+			}
+			if err := c.write(messageType, message); err != nil {
 				return
 			}
 
@@ -236,12 +327,43 @@ func (c *connection) writePump() {
 	}
 }
 
-func newConnection(wsConn *websocket.Conn, uid userId, fpr fingerprint, isCLI bool) *connection {
+func (c *connection) createProject(op *pb.ProjectOperation) (crypto.Project, error) {
+	if !c.isCLI {
+		return nil, ErrInvalidArgsForProjectOp
+	}
+	name := strings.TrimSpace(op.Name)
+	environ := strings.TrimSpace(op.Environment)
+	// Make sure we have all the requirements to perform the operation
+	if name == "" {
+		return nil, ErrInvalidArgsForProjectOp
+	}
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return nil, err
+	}
+	defer dbMap.Close()
+
+	// Create a project with name/environment.
+	project := crypto.NewProject(name, environ, "")
+	if err = project.Save(dbMap); err != nil {
+		return nil, err
+	}
+	// Add a member to the project by granting current userId admin access
+	if _, err = project.AddMember(int(c.userId), dbMap); err != nil {
+		return nil, err
+	}
+	// Return the new project
+	return project, nil
+}
+
+func newConnection(wsConn *websocket.Conn, uid userId, keyId publicKeyId, fpr fingerprint, isCLI bool) *connection {
 	return &connection{
 		lock:        &sync.Mutex{},
 		send:        make(chan []byte, 256),
 		ws:          wsConn,
 		userId:      uid,
+		keyId:       keyId,
 		fingerprint: fpr,
 		isCLI:       isCLI,
 	}

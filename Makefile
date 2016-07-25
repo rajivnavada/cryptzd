@@ -1,4 +1,4 @@
-BIN = cryptz
+BIN = cryptzd
 HOST = 127.0.0.1
 PORT = 8000
 SCHEMAFILE = ./schema.sql
@@ -21,7 +21,7 @@ key.pem:
 clean:
 	rm -f $(BIN)
 	rm -f $(GOPATH)/bin/$(BIN)
-	find $(GOPATH)/pkg -maxdepth 2 -type d -name "cryptz" -exec rm -rf {} \;
+	find $(GOPATH)/pkg -maxdepth 2 -type d -name "cryptzd" -exec rm -rf {} \;
 
 cleandb:
 	rm $(SQLFILE)
