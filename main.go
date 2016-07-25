@@ -14,7 +14,7 @@ var (
 	host                    = flag.String("host", "127.0.0.1", "HTTP service host")
 	port                    = flag.String("port", "8000", "HTTP port at which the service will run")
 	sqliteFilePath          = flag.String("db", "/usr/local/var/db/cryptz/cryptz.db", "Path to sqllite db file.")
-	appEmail                = flag.String("appEmail", "zocmyworld@gmail.com", "Email address to use for sender for this app")
+	appEmail                = flag.String("appEmail", "", "Email address to use for sender for this app")
 	appEmailPasswordEnvName = flag.String("appPasswordEnvName", "MAILPASS", "Name of the environment variable that contains the password for this app email sender")
 	debug                   = flag.Bool("debug", false, "Turn on debug mode")
 )

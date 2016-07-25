@@ -26,7 +26,7 @@ var M = mailer{
 }
 
 func (m mailer) Send(name, email, message string) bool {
-	if m.password == "" {
+	if m.username == "" || m.password == "" {
 		println("----------------------------------------")
 		println("New mail to be sent to: " + name + " (" + email + ")")
 		println(message)

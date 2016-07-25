@@ -10,11 +10,6 @@ In order to make it easy to interact with the server, I created a CLI during hac
 [cryptzd]: https://github.com/rajivnavada/cryptzd
 [cryptz]: https://github.com/rajivnavada/cryptz
 
-Building:
----------
-
-Drop cryptz into `$GOPATH/src` and run `make install`
-
 Dependencies:
 -------------
 
@@ -29,6 +24,13 @@ Dependencies:
 [gpgtools]: https://gpgtools.org "GnuPG gpgtools"
 [sqlite3]: https://www.sqlite.org/ "SQLite"
 
+Building:
+---------
+
+Drop cryptz into `$GOPATH/src` and run `make install`
+
+Alternatively, if you have the GnuPG related dependencies installed, you can just `go get -u github.com/rajivnavada/cryptzd`
+
 Motivation:
 -----------
 
@@ -37,6 +39,20 @@ Motivation:
 * To learn GnuPG & the GPGME API
 * To build a go wrapper around GnuPG
 * A project for Zillow Hack Week 11 (Extending it for current Hack Week 12)
+
+Disclaimer:
+-----------
+
+This code was written in during 2 hackweeks at Zillow Group. The first was in March 2016 and the second was in July 2016. So parts of the codebase may seem senseless (and it probably is). There are also no tests but hopefully the code is written in a testable manner. I plan to clean up the code and add tests over the next few months as I find the time.
+
+Running:
+--------
+
+Once you have `cryptzd` installed, you need to create certificates for the server to use. If you navigate to the src directory of the project, you can call `make cert.pem` to generate the certificates. Then start the project by running `cryptzd -debug`. You can modify the host/port to which the server should bind by using the appropriate flags.
+
+Now that the server is up, you can log into the system by using your ASCII armored GPG public key. The server will try to send an email containing an activation token. The email is encrypted to the key used to log in. If no valid email address or password was provided to the mailer, the content of the email will simply be dumped onto standard output. Decrypt the cipher using the appropriate private key and follow the activation URL. Once you've activated your key, you are ready to use the system. You can now use the [cryptz client][cryptz] to interact with the server.
+
+TIP: `gpg2 --armor --export $KEY_ID | pbcopy` will allow you to copy your public key to the system clipboard on OSX.
 
 License
 -------
