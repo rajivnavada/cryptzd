@@ -95,7 +95,7 @@ func (p project) RemoveMember(userId int, dbMap DataMapper) error {
 func (p project) Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error) {
 	var ret []ProjectCredentialKey
 	var creds []*projectCredentialKeyCore
-	_, err := dbMap.Select(&creds, "SELECT * FROM project_credentials WHERE project_id = ? ORDER BY created_at ASC", p.Id())
+	_, err := dbMap.Select(&creds, "SELECT * FROM project_credential_keys WHERE project_id = ? ORDER BY created_at ASC", p.Id())
 	if err != nil {
 		return nil, err
 	}

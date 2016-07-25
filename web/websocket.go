@@ -265,6 +265,21 @@ func (c *connection) readPump() {
 			case pb.ProjectOperation_DELETE_MEMBER:
 
 			case pb.ProjectOperation_LIST_CREDENTIALS:
+				creds, err := c.listCredentials(projectOp)
+				if err != nil {
+					logError(err, "Error while listing project credentials")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					label := "credentials"
+					if len(creds) == 1 {
+						label = "credential"
+					}
+					result.Info = fmt.Sprintf("Found %d %s for project with ID = %d", len(creds), label, projectOp.ProjectId)
+					result.Error = ""
+					core.Credentials = creds
+				}
 			}
 
 		} else if credOp != nil {
@@ -440,6 +455,45 @@ func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, 
 
 	// Return the new project
 	return &cred, nil
+}
+
+func (c *connection) listCredentials(op *pb.ProjectOperation) ([]*pb.Credential, error) {
+	if !c.isCLI {
+		return nil, ErrInvalidArgsForProjectOp
+	}
+	// Validate important input
+	projectId := int(op.ProjectId)
+	// Make sure we have all the requirements to perform the operation
+	if projectId == 0 {
+		return nil, ErrInvalidArgsForProjectOp
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return nil, err
+	}
+	defer dbMap.Close()
+
+	p, err := crypto.FindProjectWithId(projectId, dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	pcList, err := p.Credentials(dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var ret []*pb.Credential
+	for _, pc := range pcList {
+		ret = append(ret, &pb.Credential{
+			Id:  int32(pc.Id()),
+			Key: pc.Key(),
+		})
+	}
+
+	return ret, nil
 }
 
 func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
