@@ -62,12 +62,13 @@ func FindProjectMemberWithUserId(userId, projectId int, dbMap DataMapper) (Proje
 	return &projectMember{pm}, nil
 }
 
-func NewProjectMember(userId, projectId int) ProjectMember {
+func NewProjectMember(userId, projectId int, accessLevel string) ProjectMember {
 	currentTime := time.Now().UTC()
 	return &projectMember{&projectMemberCore{
-		UserId:    userId,
-		ProjectId: projectId,
-		CreatedAt: currentTime,
-		UpdatedAt: currentTime,
+		UserId:      userId,
+		ProjectId:   projectId,
+		AccessLevel: accessLevel,
+		CreatedAt:   currentTime,
+		UpdatedAt:   currentTime,
 	}}
 }

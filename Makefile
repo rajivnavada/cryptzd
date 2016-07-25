@@ -28,6 +28,8 @@ cleandb:
 
 seed:
 	sqlite3 -init $(SCHEMAFILE) $(SQLFILE) -version
+	# In sqlite, we need to explicitly turn on foreign key support for cascades to work
+	# SEE: https://stackoverflow.com/questions/5890250/on-delete-cascade-in-sqlite3
 
 web: clean all cert.pem
 	exec ./$(BIN) -host $(HOST) -port $(PORT) -db $(SQLFILE)

@@ -61,7 +61,7 @@ func (p project) Members(dbMap DataMapper) ([]ProjectMember, error) {
 	return ret, nil
 }
 
-func (p project) AddMember(userId int, dbMap DataMapper) (ProjectMember, error) {
+func (p project) AddMember(userId int, accessLevel string, dbMap DataMapper) (ProjectMember, error) {
 	// Use p.Id() and userId to locate a member record.
 	pm, err := FindProjectMemberWithUserId(userId, p.Id(), dbMap)
 	if err != nil && err != sql.ErrNoRows {
@@ -69,7 +69,7 @@ func (p project) AddMember(userId int, dbMap DataMapper) (ProjectMember, error) 
 	}
 	// If it does not exist, create and save the record
 	if err == sql.ErrNoRows {
-		pm = NewProjectMember(userId, p.Id())
+		pm = NewProjectMember(userId, p.Id(), accessLevel)
 		err = pm.Save(dbMap)
 		if err != nil {
 			return nil, err

@@ -80,7 +80,7 @@ type Project interface {
 	UpdatedAt() time.Time
 
 	Members(dbMap DataMapper) ([]ProjectMember, error)
-	AddMember(userId int, dbMap DataMapper) (ProjectMember, error)
+	AddMember(userId int, accessLevel string, dbMap DataMapper) (ProjectMember, error)
 	RemoveMember(userId int, dbMap DataMapper) error
 
 	Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error)

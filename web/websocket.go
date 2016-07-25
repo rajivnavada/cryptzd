@@ -223,7 +223,10 @@ func (c *connection) readPump() {
 
 		projectOp := opQuery.GetProjectOp()
 		credOp := opQuery.GetCredentialOp()
-		result := &pb.Response{}
+		result := &pb.Response{
+			Status: pb.Response_ERROR,
+			Error:  "This operation is temporarily unsupported",
+		}
 
 		// Perform the operation requested in the message (possibly by spawning a goroutine)
 		if projectOp != nil {
@@ -247,12 +250,9 @@ func (c *connection) readPump() {
 					result.Error = err.Error()
 				} else {
 					result.Status = pb.Response_SUCCESS
-					result.Info = fmt.Sprintf("Successfully created project with ID = %d", project.Id())
-					core.Project = &pb.Project{
-						Id:          int32(project.Id()),
-						Name:        project.Name(),
-						Environment: project.Environment(),
-					}
+					result.Info = fmt.Sprintf("Successfully created project with ID = %d", project.Id)
+					result.Error = ""
+					core.Project = project
 				}
 
 			case pb.ProjectOperation_UPDATE:
@@ -327,7 +327,7 @@ func (c *connection) writePump() {
 	}
 }
 
-func (c *connection) createProject(op *pb.ProjectOperation) (crypto.Project, error) {
+func (c *connection) createProject(op *pb.ProjectOperation) (*pb.Project, error) {
 	if !c.isCLI {
 		return nil, ErrInvalidArgsForProjectOp
 	}
@@ -350,11 +350,16 @@ func (c *connection) createProject(op *pb.ProjectOperation) (crypto.Project, err
 		return nil, err
 	}
 	// Add a member to the project by granting current userId admin access
-	if _, err = project.AddMember(int(c.userId), dbMap); err != nil {
+	if _, err = project.AddMember(int(c.userId), crypto.ACCESS_LEVEL_ADMIN, dbMap); err != nil {
 		return nil, err
 	}
+	ret := pb.Project{
+		Id:          int32(project.Id()),
+		Name:        project.Name(),
+		Environment: project.Environment(),
+	}
 	// Return the new project
-	return project, nil
+	return &ret, nil
 }
 
 func newConnection(wsConn *websocket.Conn, uid userId, keyId publicKeyId, fpr fingerprint, isCLI bool) *connection {
