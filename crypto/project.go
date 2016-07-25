@@ -183,8 +183,7 @@ func (p project) RemoveCredential(key string, dbMap DataMapper) error {
 		return nil
 	}
 	// If it exists, delete it
-	_, err = dbMap.Delete(pk)
-	return err
+	return pk.Delete(dbMap)
 }
 
 func (p project) Save(dbMap DataMapper) error {

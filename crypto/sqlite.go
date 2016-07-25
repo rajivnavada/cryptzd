@@ -24,6 +24,10 @@ func NewDataMapper() (DataMapper, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec("PRAGMA foreign_keys = true;")
+	if err != nil {
+		return nil, err
+	}
 
 	dbMap := &gorp.DbMap{
 		Db:      db,

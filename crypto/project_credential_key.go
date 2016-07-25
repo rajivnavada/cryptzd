@@ -44,6 +44,11 @@ func (pk projectCredentialKey) Save(dbMap DataMapper) error {
 	return dbMap.Insert(pk.projectCredentialKeyCore)
 }
 
+func (pk projectCredentialKey) Delete(dbMap DataMapper) error {
+	_, err := dbMap.Delete(pk.projectCredentialKeyCore)
+	return err
+}
+
 func (pk projectCredentialKey) ValueForPublicKey(publicKeyId int, dbMap DataMapper) (ProjectCredentialValue, error) {
 	return FindProjectCredentialValueForPublicKey(publicKeyId, pk.Id(), dbMap)
 }

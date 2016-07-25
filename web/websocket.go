@@ -305,6 +305,16 @@ func (c *connection) readPump() {
 				}
 
 			case pb.CredentialOperation_DELETE:
+				err := c.deleteCredential(credOp)
+				if err != nil {
+					logError(err, fmt.Sprintf("Error while deleting credential with key '%s'", credOp.Key))
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = fmt.Sprintf("Successfully deleted credential with key '%s'", credOp.Key)
+					result.Error = ""
+				}
 			}
 		}
 
@@ -470,6 +480,38 @@ func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, 
 
 	// Return the new project
 	return &cred, nil
+}
+
+func (c *connection) deleteCredential(op *pb.CredentialOperation) error {
+	if !c.isCLI {
+		return ErrInvalidArgsForCredentialOp
+	}
+	// Validate important input
+	projectId := int(op.Project)
+	key := strings.TrimSpace(op.Key)
+	// Make sure we have all the requirements to perform the operation
+	if projectId == 0 || key == "" {
+		return ErrInvalidArgsForCredentialOp
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return err
+	}
+	defer dbMap.Close()
+
+	// Create a project with name/environment.
+	p, err := crypto.FindProjectWithId(projectId, dbMap)
+	if err != nil {
+		return err
+	}
+
+	err = p.RemoveCredential(key, dbMap)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func newConnection(wsConn *websocket.Conn, uid userId, keyId publicKeyId, fpr fingerprint, isCLI bool) *connection {
