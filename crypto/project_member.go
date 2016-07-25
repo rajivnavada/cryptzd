@@ -53,9 +53,23 @@ func (pm projectMember) Save(dbMap DataMapper) error {
 	return dbMap.Insert(pm.projectMemberCore)
 }
 
+func (pm projectMember) Delete(dbMap DataMapper) error {
+	_, err := dbMap.Delete(pm.projectMemberCore)
+	return err
+}
+
 func FindProjectMemberWithUserId(userId, projectId int, dbMap DataMapper) (ProjectMember, error) {
 	pm := &projectMemberCore{UserId: userId, ProjectId: projectId}
 	err := dbMap.SelectOne(pm, "SELECT * FROM project_members WHERE user_id = ? AND project_id = ?", pm.UserId, pm.ProjectId)
+	if err != nil {
+		return nil, err
+	}
+	return &projectMember{pm}, nil
+}
+
+func FindProjectMemberWithId(memberId int, dbMap DataMapper) (ProjectMember, error) {
+	pm := &projectMemberCore{Id: memberId}
+	err := dbMap.SelectOne(pm, "SELECT * FROM project_members WHERE id = ?", memberId)
 	if err != nil {
 		return nil, err
 	}

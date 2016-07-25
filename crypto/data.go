@@ -99,6 +99,7 @@ type ProjectMember interface {
 	UpdatedAt() time.Time
 
 	User(dbMap DataMapper) (User, error)
+	Delete(dbMap DataMapper) error
 }
 
 type ProjectCredentialKey interface {

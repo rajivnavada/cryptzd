@@ -88,8 +88,7 @@ func (p project) RemoveMember(userId int, dbMap DataMapper) error {
 		return nil
 	}
 	// If it exists, delete it
-	_, err = dbMap.Delete(pm)
-	return err
+	return pm.Delete(dbMap)
 }
 
 func (p project) Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error) {

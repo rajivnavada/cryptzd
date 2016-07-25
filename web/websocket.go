@@ -273,6 +273,16 @@ func (c *connection) readPump() {
 				}
 
 			case pb.ProjectOperation_DELETE_MEMBER:
+				err := c.deleteMember(projectOp)
+				if err != nil {
+					logError(err, "Error while deleting member from project")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = fmt.Sprintf("Successfully deleted member with ID = %d from project with ID = %d", projectOp.MemberId, projectOp.ProjectId)
+					result.Error = ""
+				}
 
 			case pb.ProjectOperation_LIST_CREDENTIALS:
 				creds, err := c.listCredentials(projectOp)
@@ -471,6 +481,36 @@ func (c *connection) addMember(op *pb.ProjectOperation) (int32, error) {
 
 	// Return the new project
 	return int32(m.Id()), nil
+}
+
+func (c *connection) deleteMember(op *pb.ProjectOperation) error {
+	if !c.isCLI {
+		return ErrInvalidArgsForProjectOp
+	}
+
+	// Validate important input
+	memberId := int(op.MemberId)
+
+	// Make sure we have all the requirements to perform the operation
+	if memberId == 0 {
+		return ErrInvalidArgsForProjectOp
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return err
+	}
+	defer dbMap.Close()
+
+	// Find member
+	m, err := crypto.FindProjectMemberWithId(memberId, dbMap)
+	if err != nil {
+		return err
+	}
+
+	// Return the new project
+	return m.Delete(dbMap)
 }
 
 func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
