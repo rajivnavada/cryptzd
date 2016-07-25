@@ -105,19 +105,65 @@ func (p project) Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error) {
 	return ret, nil
 }
 
-func (p project) AddCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
+func (p project) SetCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
 	// Figure out if the combo of key & p.Id exists
-	// If it exists, update the value record
-	// Else create a new credential key record
-	// use the key record to add a value record
-	return nil, NotImplementedError
-}
+	pkc := &projectCredentialKeyCore{
+		ProjectId: p.Id(),
+		Key:       key,
+	}
+	pk := &projectCredentialKey{pkc}
 
-func (p project) UpdateCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error) {
-	// Get the key record using key & p.Id combo
-	// if key does not exist, return error
-	// if key exists, create a value record for each project member
-	return nil, NotImplementedError
+	err := dbMap.SelectOne(pkc, "SELECT * FROM project_credential_keys WHERE project_id = ? AND key = ?", pkc.ProjectId, pkc.Key)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == sql.ErrNoRows {
+		currentTime := time.Now().UTC()
+		pkc.CreatedAt = currentTime
+		pkc.UpdatedAt = currentTime
+
+		pk = &projectCredentialKey{pkc}
+		if err := pk.Save(dbMap); err != nil {
+			return nil, err
+		}
+	}
+
+	// Now we need to go over each member of the project and create credential values for each member
+	members, err := p.Members(dbMap)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range members {
+		u, err := m.User(dbMap)
+		if err != nil {
+			return nil, err
+		}
+		keys, err := u.ActivePublicKeys(dbMap)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		for _, k := range keys {
+			cipher, err := k.Encrypt(value)
+			if err != nil {
+				return nil, err
+			}
+			currentTime := time.Now().UTC()
+			pv := &projectCredentialValue{&projectCredentialValueCore{
+				CredentialId: pk.Id(),
+				MemberId:     m.Id(),
+				PublicKeyId:  k.Id(),
+				Cipher:       []byte(cipher),
+				CreatedAt:    currentTime,
+				UpdatedAt:    currentTime,
+				ExpiresAt:    currentTime.AddDate(0, 3, 0),
+			}}
+			if err := pv.Save(dbMap); err != nil {
+				return nil, err
+			}
+		}
+	}
+	// Now we just return the key created
+	return pk, nil
 }
 
 func (p project) RemoveCredential(key string, dbMap DataMapper) error {

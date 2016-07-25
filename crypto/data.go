@@ -84,8 +84,7 @@ type Project interface {
 	RemoveMember(userId int, dbMap DataMapper) error
 
 	Credentials(dbMap DataMapper) ([]ProjectCredentialKey, error)
-	AddCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error)
-	UpdateCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error)
+	SetCredential(key, value string, dbMap DataMapper) (ProjectCredentialKey, error)
 	RemoveCredential(key string, dbMap DataMapper) error
 }
 
