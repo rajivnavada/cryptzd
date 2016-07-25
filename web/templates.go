@@ -1,7 +1,7 @@
 package web
 
 import (
-	"cryptzd/crypto"
+	"github.com/rajivnavada/cryptzd/crypto"
 	"html/template"
 	textTemplate "text/template"
 )

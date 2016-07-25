@@ -2,12 +2,12 @@ package web
 
 import (
 	"bytes"
-	"cryptzd/crypto"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	pb "github.com/rajivnavada/cryptz_pb"
+	"github.com/rajivnavada/cryptzd/crypto"
 	"strings"
 	"sync"
 	"time"

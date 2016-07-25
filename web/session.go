@@ -1,10 +1,10 @@
 package web
 
 import (
-	"cryptzd/crypto"
 	"encoding/gob"
 	"errors"
 	"github.com/gorilla/sessions"
+	"github.com/rajivnavada/cryptzd/crypto"
 	"net/http"
 	"time"
 )

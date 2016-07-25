@@ -1,11 +1,11 @@
 package main
 
 import (
-	"cryptzd/crypto"
-	"cryptzd/mail"
-	"cryptzd/web"
 	"flag"
 	"fmt"
+	"github.com/rajivnavada/cryptzd/crypto"
+	"github.com/rajivnavada/cryptzd/mail"
+	"github.com/rajivnavada/cryptzd/web"
 	"net/http"
 	"os"
 )
