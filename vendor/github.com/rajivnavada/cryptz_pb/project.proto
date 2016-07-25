@@ -35,6 +35,7 @@ message ProjectOperation {
     int32 memberId = 5;
     int32 userId = 6;
     string accessLevel = 7;
+    string memberEmail = 8;
 
 }
 

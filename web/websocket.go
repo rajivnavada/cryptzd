@@ -261,6 +261,16 @@ func (c *connection) readPump() {
 			case pb.ProjectOperation_DELETE:
 
 			case pb.ProjectOperation_ADD_MEMBER:
+				memberId, err := c.addMember(projectOp)
+				if err != nil {
+					logError(err, "Error while adding member to project")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = fmt.Sprintf("Successfully added %s (member ID = %d) to project with ID = %d", projectOp.MemberEmail, memberId, projectOp.ProjectId)
+					result.Error = ""
+				}
 
 			case pb.ProjectOperation_DELETE_MEMBER:
 
@@ -417,6 +427,52 @@ func (c *connection) createProject(op *pb.ProjectOperation) (*pb.Project, error)
 	return &ret, nil
 }
 
+func (c *connection) addMember(op *pb.ProjectOperation) (int32, error) {
+	if !c.isCLI {
+		return 0, ErrInvalidArgsForProjectOp
+	}
+
+	// Validate important input
+	projectId := int(op.ProjectId)
+	memberEmail := op.MemberEmail
+	// Make sure we have all the requirements to perform the operation
+	if projectId == 0 || memberEmail == "" {
+		return 0, ErrInvalidArgsForProjectOp
+	}
+
+	accessLevel := op.AccessLevel
+	if accessLevel == "" {
+		accessLevel = crypto.ACCESS_LEVEL_READ
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return 0, err
+	}
+	defer dbMap.Close()
+
+	// Create a project with name/environment.
+	p, err := crypto.FindProjectWithId(projectId, dbMap)
+	if err != nil {
+		return 0, err
+	}
+
+	u, err := crypto.FindUserWithEmail(memberEmail, dbMap)
+	if err != nil {
+		return 0, err
+	}
+
+	// Add a member to the project by granting current userId admin access
+	m, err := p.AddMember(int(u.Id()), accessLevel, dbMap)
+	if err != nil {
+		return 0, err
+	}
+
+	// Return the new project
+	return int32(m.Id()), nil
+}
+
 func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
 	if !c.isCLI {
 		return nil, ErrInvalidArgsForCredentialOp
@@ -480,6 +536,7 @@ func (c *connection) listCredentials(op *pb.ProjectOperation) ([]*pb.Credential,
 		return nil, err
 	}
 
+	// TODO: restrict the list of credentials to those that can be accessed by current user
 	pcList, err := p.Credentials(dbMap)
 	if err != nil {
 		return nil, err
@@ -521,6 +578,8 @@ func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, 
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: validate that the current user has the ability to write to this project
 
 	pc, err := p.SetCredential(key, value, dbMap)
 	if err != nil {
