@@ -146,16 +146,24 @@ func (p project) SetCredential(key, value string, dbMap DataMapper) (ProjectCred
 			if err != nil {
 				return nil, err
 			}
-			currentTime := time.Now().UTC()
-			pv := &projectCredentialValue{&projectCredentialValueCore{
-				CredentialId: pk.Id(),
-				MemberId:     m.Id(),
-				PublicKeyId:  k.Id(),
-				Cipher:       []byte(cipher),
-				CreatedAt:    currentTime,
-				UpdatedAt:    currentTime,
-				ExpiresAt:    currentTime.AddDate(0, 3, 0),
-			}}
+			pv, err := FindProjectCredentialValueForPublicKey(k.Id(), pk.Id(), dbMap)
+			if err != nil && err != sql.ErrNoRows {
+				return nil, err
+			}
+			if err == sql.ErrNoRows {
+				currentTime := time.Now().UTC()
+				pv = &projectCredentialValue{&projectCredentialValueCore{
+					CredentialId: pk.Id(),
+					MemberId:     m.Id(),
+					PublicKeyId:  k.Id(),
+					Cipher:       []byte(cipher),
+					CreatedAt:    currentTime,
+					UpdatedAt:    currentTime,
+					ExpiresAt:    currentTime.AddDate(0, 3, 0),
+				}}
+			} else {
+				pv.SetCipher([]byte(cipher))
+			}
 			if err := pv.Save(dbMap); err != nil {
 				return nil, err
 			}
