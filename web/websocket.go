@@ -281,7 +281,7 @@ func (c *connection) readPump() {
 			case pb.CredentialOperation_GET:
 				cred, err := c.getCredential(credOp)
 				if err != nil {
-					logError(err, "Error while creating project")
+					logError(err, "Error while getting a credential")
 					result.Status = pb.Response_ERROR
 					result.Error = err.Error()
 				} else {
@@ -292,6 +292,17 @@ func (c *connection) readPump() {
 				}
 
 			case pb.CredentialOperation_SET:
+				cred, err := c.setCredential(credOp)
+				if err != nil {
+					logError(err, fmt.Sprintf("Error while setting credential with key '%s'", credOp.Key))
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					result.Info = fmt.Sprintf("Successfully set credential with key '%s'", credOp.Key)
+					result.Error = ""
+					core.Credential = cred
+				}
 
 			case pb.CredentialOperation_DELETE:
 			}
@@ -415,6 +426,46 @@ func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, 
 		Id:     int32(pv.CredentialId()),
 		Key:    key,
 		Cipher: string(pv.Cipher()),
+	}
+
+	// Return the new project
+	return &cred, nil
+}
+
+func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
+	if !c.isCLI {
+		return nil, ErrInvalidArgsForCredentialOp
+	}
+	// Validate important input
+	projectId := int(op.Project)
+	key := strings.TrimSpace(op.Key)
+	value := op.Value
+	// Make sure we have all the requirements to perform the operation
+	if projectId == 0 || key == "" || value == "" {
+		return nil, ErrInvalidArgsForCredentialOp
+	}
+
+	// Get a mapper
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return nil, err
+	}
+	defer dbMap.Close()
+
+	// Create a project with name/environment.
+	p, err := crypto.FindProjectWithId(projectId, dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	pc, err := p.SetCredential(key, value, dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	cred := pb.Credential{
+		Id:  int32(pc.Id()),
+		Key: key,
 	}
 
 	// Return the new project
