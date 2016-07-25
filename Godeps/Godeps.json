@@ -1,8 +1,11 @@
 {
-	"ImportPath": "cryptz",
+	"ImportPath": "cryptzd",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v74",
 	"Deps": [
+		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "874264fbbb43f4d91e999fecb4b40143ed611400"
+		},
 		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "14f550f51af52180c2eefed15e5fd18d63c0a64a"
@@ -29,8 +32,16 @@
 			"Rev": "e118d4451349065b8e7ce0f0af32e033995363f8"
 		},
 		{
+			"ImportPath": "github.com/rajivnavada/cryptz_pb",
+			"Rev": "5068386dff80b11d9b3f00b38b08bf2db95748a4"
+		},
+		{
 			"ImportPath": "github.com/rajivnavada/gpgme",
 			"Rev": "4cccb284d801252426dd68043ea70311f62ace72"
+		},
+		{
+			"ImportPath": "gopkg.in/alexcesaro/quotedprintable.v3",
+			"Rev": "2caba252f4dc53eaf6b553000885530023f54623"
 		},
 		{
 			"ImportPath": "gopkg.in/gomail.v2",
