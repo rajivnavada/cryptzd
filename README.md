@@ -1,28 +1,23 @@
 Description:
 ============
 
-[cryptzd][cryptzd] makes it easy to securely communicate with peers. Messages are encyrpted using the receivers public key. Only encrypted messages are saved to the persistent store and the server does not have the  ability to decrypt these messages.
+[cryptzd][cryptzd] makes it easy to securely store and share app credentials or passwords with peers. All data is encrypted using the receivers public key. Only encrypted data is saved to the persistent store and the server does not have the  ability to decrypt any data.
 
-During hackweek 12, I added the `project`, `project_member` and `project_credential` entities. A `project` is just a container for `members` and `credentials`. members are users that have access to the projets credentials. credentials are the entities we're protecting. These could be things like database passwords, API credentials etc...
+You can use [cryptz][cryptz] to communicate with a `cryptzd` instance.
 
-In order to make it easy to interact with the server, I created a CLI during hackweek 12. That project can be found here [cryptz][cryptz]
+Data Schema:
+------------
 
-[cryptzd]: https://github.com/rajivnavada/cryptzd
-[cryptz]: https://github.com/rajivnavada/cryptz
+TODO
+
 
 Dependencies:
 -------------
 
-* The server needs to link against some GPG libraries. Specifically, you will need [libgpg-error][gpg-error], [libassuan][assuan] and [libgpgme][gpgme]. All of these can be installed via homebrew. `brew install libgpg-error libassuan gpgme`
+* The server needs to link against some GPG libraries. Specifically, you will need [libgpg-error][gpg-error], [libassuan][assuan] and [libgpgme][gpgme]. All of these can be installed via homebrew. `brew install libgpg-error libassuan gpgme`.
 * To decrypt messages the server sends, you will need to install [gpgtools][gpgtools]. You can install it via homebrew using `brew cask install gpgtools`
 * The above command installs /usr/local/MacGPG2. If you want to run gpg2 from the command line, make sure you include `/usr/local/MacGPG2/bin` in `$PATH`
-* [sqlite][sqlite] is the datastore.
-
-[gpg-error]: https://www.gnupg.org/related_software/libgpg-error/index.html "GnuPG libgpg-error"
-[assuan]: https://www.gnupg.org/related_software/libassuan/index.html "GnuPG libassuan"
-[gpgme]: https://www.gnupg.org/related_software/gpgme/index.html "GnuPG gpgme"
-[gpgtools]: https://gpgtools.org "GnuPG gpgtools"
-[sqlite3]: https://www.sqlite.org/ "SQLite"
+* [sqlite][sqlite3] is the datastore.
 
 Building:
 ---------
@@ -40,11 +35,6 @@ Motivation:
 * To build a go wrapper around GnuPG
 * A project for Zillow Hack Week 11 (Extending it for current Hack Week 12)
 
-Disclaimer:
------------
-
-This code was written in during 2 hackweeks at Zillow Group. The first was in March 2016 and the second was in July 2016. So parts of the codebase may seem senseless (and it probably is). There are also no tests but hopefully the code is written in a testable manner. I plan to clean up the code and add tests over the next few months as I find the time.
-
 Running:
 --------
 
@@ -58,4 +48,13 @@ License
 -------
 
 MIT
+
+
+[cryptzd]: https://github.com/rajivnavada/cryptzd
+[cryptz]: https://github.com/rajivnavada/cryptz
+[gpg-error]: https://www.gnupg.org/related_software/libgpg-error/index.html "GnuPG libgpg-error"
+[assuan]: https://www.gnupg.org/related_software/libassuan/index.html "GnuPG libassuan"
+[gpgme]: https://www.gnupg.org/related_software/gpgme/index.html "GnuPG gpgme"
+[gpgtools]: https://gpgtools.org "GnuPG gpgtools"
+[sqlite3]: https://www.sqlite.org/ "SQLite"
 

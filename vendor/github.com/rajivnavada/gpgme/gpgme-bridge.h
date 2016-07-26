@@ -5,7 +5,6 @@
 #include <gpgme.h>
 #include <gpg-error.h>
 
-
 enum {
     KEY_FINGERPRINT_LEN = 40,
     KEY_USERNAME_LEN = 255,

@@ -37,7 +37,7 @@
 		},
 		{
 			"ImportPath": "github.com/rajivnavada/gpgme",
-			"Rev": "4cccb284d801252426dd68043ea70311f62ace72"
+			"Rev": "b6b4ed731b5a1cd54ba23e61d28f4076d297a0c7"
 		},
 		{
 			"ImportPath": "gopkg.in/alexcesaro/quotedprintable.v3",
