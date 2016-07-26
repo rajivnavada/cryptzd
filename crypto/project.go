@@ -48,6 +48,12 @@ func (p project) UpdatedAt() time.Time {
 	return p.projectCore.UpdatedAt
 }
 
+func (p project) HasAdminWithUserId(userId int, dbMap DataMapper) bool {
+	ret := 0
+	err := dbMap.SelectOne(&ret, "SELECT 1 FROM project_members WHERE user_id = ? AND access_level = ?", userId, "admin")
+	return err == nil && ret == 1
+}
+
 func (p project) Members(dbMap DataMapper) ([]ProjectMember, error) {
 	var ret []ProjectMember
 	var members []*projectMemberCore

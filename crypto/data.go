@@ -79,6 +79,8 @@ type Project interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
+	HasAdminWithUserId(userId int, dbMap DataMapper) bool
+
 	Members(dbMap DataMapper) ([]ProjectMember, error)
 	AddMember(userId int, accessLevel string, dbMap DataMapper) (ProjectMember, error)
 	RemoveMember(userId int, dbMap DataMapper) error

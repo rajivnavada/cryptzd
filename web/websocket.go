@@ -33,6 +33,7 @@ var (
 	ErrDuplicateFingerprint       = errors.New("New connection attempted with duplicate fingerprint. Selecting new connection over old.")
 	ErrInvalidArgsForProjectOp    = errors.New("Project operation received invalid arguments. Please make sure all required arguments are provided.")
 	ErrInvalidArgsForCredentialOp = errors.New("Credential operation received invalid arguments. Please make sure all required arguments are provided.")
+	ErrNoAccess                   = errors.New("You do not have permission to perform this operation.")
 )
 
 var upgrader = websocket.Upgrader{
@@ -468,6 +469,11 @@ func (c *connection) addMember(op *pb.ProjectOperation) (int32, error) {
 		return 0, err
 	}
 
+	// Assert that the current user has admin access to the project
+	if !p.HasAdminWithUserId(int(c.userId), dbMap) {
+		return 0, ErrNoAccess
+	}
+
 	u, err := crypto.FindUserWithEmail(memberEmail, dbMap)
 	if err != nil {
 		return 0, err
@@ -507,6 +513,17 @@ func (c *connection) deleteMember(op *pb.ProjectOperation) error {
 	m, err := crypto.FindProjectMemberWithId(memberId, dbMap)
 	if err != nil {
 		return err
+	}
+
+	// Make sure the user is an admin of the project
+	p, err := crypto.FindProjectWithId(m.ProjectId(), dbMap)
+	if err != nil {
+		return ErrNoAccess
+	}
+
+	// Assert that the current user has admin access to the project
+	if !p.HasAdminWithUserId(int(c.userId), dbMap) {
+		return ErrNoAccess
 	}
 
 	// Return the new project
@@ -576,7 +593,6 @@ func (c *connection) listCredentials(op *pb.ProjectOperation) ([]*pb.Credential,
 		return nil, err
 	}
 
-	// TODO: restrict the list of credentials to those that can be accessed by current user
 	pcList, err := p.Credentials(dbMap)
 	if err != nil {
 		return nil, err
@@ -619,7 +635,10 @@ func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, 
 		return nil, err
 	}
 
-	// TODO: validate that the current user has the ability to write to this project
+	// Assert that the current user has admin access to the project
+	if !p.HasAdminWithUserId(int(c.userId), dbMap) {
+		return nil, ErrNoAccess
+	}
 
 	pc, err := p.SetCredential(key, value, dbMap)
 	if err != nil {
@@ -658,6 +677,11 @@ func (c *connection) deleteCredential(op *pb.CredentialOperation) error {
 	p, err := crypto.FindProjectWithId(projectId, dbMap)
 	if err != nil {
 		return err
+	}
+
+	// Assert that the current user has admin access to the project
+	if !p.HasAdminWithUserId(int(c.userId), dbMap) {
+		return ErrNoAccess
 	}
 
 	err = p.RemoveCredential(key, dbMap)
