@@ -208,6 +208,19 @@ func FindProjectWithId(projectId int, dbMap DataMapper) (Project, error) {
 	return &project{pc}, nil
 }
 
+func FindProjectsForUser(userId int, dbMap DataMapper) ([]Project, error) {
+	var ret []Project
+	var projects []*projectCore
+	_, err := dbMap.Select(&projects, "SELECT p.*, pm.access_level as default_access_level FROM projects p INNER JOIN project_members pm ON pm.project_id = p.id WHERE pm.user_id = ? ORDER BY pm.access_level ASC", userId)
+	if err != nil {
+		return nil, err
+	}
+	for _, pc := range projects {
+		ret = append(ret, &project{pc})
+	}
+	return ret, nil
+}
+
 func NewProject(name, environment, defaultAccessLevel string) Project {
 	if defaultAccessLevel == "" {
 		defaultAccessLevel = ACCESS_LEVEL_READ

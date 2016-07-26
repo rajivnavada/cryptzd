@@ -243,6 +243,21 @@ func (c *connection) readPump() {
 
 			switch projectOp.Command {
 			case pb.ProjectOperation_LIST:
+				projects, err := c.listProjects(projectOp)
+				if err != nil {
+					logError(err, "Error when listing projects")
+					result.Status = pb.Response_ERROR
+					result.Error = err.Error()
+				} else {
+					result.Status = pb.Response_SUCCESS
+					label := "projects"
+					if len(projects) == 1 {
+						label = "project"
+					}
+					result.Info = fmt.Sprintf("Found %d %s", len(projects), label)
+					result.Error = ""
+					core.Projects = projects
+				}
 
 			case pb.ProjectOperation_CREATE:
 				project, err := c.createProject(projectOp)
@@ -401,6 +416,33 @@ func (c *connection) writePump() {
 			}
 		}
 	}
+}
+
+func (c *connection) listProjects(op *pb.ProjectOperation) ([]*pb.Project, error) {
+	if !c.isCLI {
+		return nil, ErrInvalidArgsForProjectOp
+	}
+
+	dbMap, err := crypto.NewDataMapper()
+	if err != nil {
+		return nil, err
+	}
+	defer dbMap.Close()
+
+	projects, err := crypto.FindProjectsForUser(int(c.userId), dbMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var ret []*pb.Project
+	for _, p := range projects {
+		ret = append(ret, &pb.Project{
+			Id:          int32(p.Id()),
+			Name:        fmt.Sprintf("[%s] %s", p.DefaultAccessLevel(), p.Name()),
+			Environment: p.Environment(),
+		})
+	}
+	return ret, nil
 }
 
 func (c *connection) createProject(op *pb.ProjectOperation) (*pb.Project, error) {
