@@ -1,6 +1,7 @@
 {
 	"ImportPath": "cryptzd",
 	"GoVersion": "go1.6",
+	"GodepVersion": "v74",
 	"Deps": [
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
@@ -33,7 +34,7 @@
 		},
 		{
 			"ImportPath": "github.com/rajivnavada/cryptz_pb",
-			"Rev": "9e3a615fa430790127d7461893b1d9e6f97c0146"
+			"Rev": "c280ac1c3a09cad50fa39b48e8d0a76d740fd425"
 		},
 		{
 			"ImportPath": "github.com/rajivnavada/gpgme",

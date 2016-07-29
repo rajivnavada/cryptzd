@@ -1,21 +1,6 @@
 syntax = "proto3";
 package crypto_pb;
 
-message CredentialOperation {
-
-    enum Command {
-        GET = 0;
-        SET = 1; // Even updates can be handled via ADD
-        DELETE = 2;
-    }
-
-    Command command = 1;
-    int32 project = 2;
-    string key = 3;
-    string value = 4;
-
-}
-
 message ProjectOperation {
 
     enum Command {
@@ -26,6 +11,9 @@ message ProjectOperation {
         LIST_CREDENTIALS = 4;
         ADD_MEMBER = 5;
         DELETE_MEMBER = 6;
+        ADD_CREDENTIAL = 7;
+        DELETE_CREDENTIAL = 8;
+        GET_CREDENTIAL = 9;
     }
 
     Command command = 1;
@@ -36,16 +24,14 @@ message ProjectOperation {
     int32 userId = 6;
     string accessLevel = 7;
     string memberEmail = 8;
+    string key = 9;
+    string value = 10;
 
 }
 
 message Operation {
     int32 opId = 1;
-
-    oneof ProjectOrCredentialOp {
-        ProjectOperation projectOp = 2;
-        CredentialOperation credentialOp = 3;
-    }
+    ProjectOperation projectOp = 2;
 }
 
 message Credential {
@@ -62,15 +48,11 @@ message Project {
 
 message ProjectOperationResponse {
     ProjectOperation.Command command = 1;
-    Project project = 2;
     int32 memberId = 3;
+    Project project = 2;
+    Credential credential = 6;
     repeated Credential credentials = 4;
     repeated Project projects = 5;
-}
-
-message CredentialOperationResponse {
-    CredentialOperation.Command command = 1;
-    Credential credential = 2;
 }
 
 message Response {
@@ -83,9 +65,5 @@ message Response {
     string error = 2;
     string info = 3;
     int32 opId = 4;
-
-    oneof ProjectOrCredentialResponse {
-        ProjectOperationResponse projectOpResponse = 5;
-        CredentialOperationResponse credentialOpResponse = 6;
-    }
+    ProjectOperationResponse projectOpResponse = 5;
 }

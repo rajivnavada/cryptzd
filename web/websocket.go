@@ -224,7 +224,6 @@ func (c *connection) readPump() {
 		}
 
 		projectOp := opQuery.GetProjectOp()
-		credOp := opQuery.GetCredentialOp()
 		result := &pb.Response{
 			Status: pb.Response_ERROR,
 			Error:  "This operation is temporarily unsupported",
@@ -236,10 +235,7 @@ func (c *connection) readPump() {
 			core := &pb.ProjectOperationResponse{
 				Command: projectOp.Command,
 			}
-
-			result.ProjectOrCredentialResponse = &pb.Response_ProjectOpResponse{
-				ProjectOpResponse: core,
-			}
+			result.ProjectOpResponse = core
 
 			switch projectOp.Command {
 			case pb.ProjectOperation_LIST:
@@ -316,21 +312,9 @@ func (c *connection) readPump() {
 					result.Error = ""
 					core.Credentials = creds
 				}
-			}
 
-		} else if credOp != nil {
-
-			core := &pb.CredentialOperationResponse{
-				Command: credOp.Command,
-			}
-
-			result.ProjectOrCredentialResponse = &pb.Response_CredentialOpResponse{
-				CredentialOpResponse: core,
-			}
-
-			switch credOp.Command {
-			case pb.CredentialOperation_GET:
-				cred, err := c.getCredential(credOp)
+			case pb.ProjectOperation_GET_CREDENTIAL:
+				cred, err := c.getCredential(projectOp)
 				if err != nil {
 					logError(err, "Error while getting a credential")
 					result.Status = pb.Response_ERROR
@@ -342,28 +326,28 @@ func (c *connection) readPump() {
 					core.Credential = cred
 				}
 
-			case pb.CredentialOperation_SET:
-				cred, err := c.setCredential(credOp)
+			case pb.ProjectOperation_ADD_CREDENTIAL:
+				cred, err := c.setCredential(projectOp)
 				if err != nil {
-					logError(err, fmt.Sprintf("Error while setting credential with key '%s'", credOp.Key))
+					logError(err, fmt.Sprintf("Error while setting credential with key '%s'", projectOp.Key))
 					result.Status = pb.Response_ERROR
 					result.Error = err.Error()
 				} else {
 					result.Status = pb.Response_SUCCESS
-					result.Info = fmt.Sprintf("Successfully set credential with key '%s'", credOp.Key)
+					result.Info = fmt.Sprintf("Successfully set credential with key '%s'", projectOp.Key)
 					result.Error = ""
 					core.Credential = cred
 				}
 
-			case pb.CredentialOperation_DELETE:
-				err := c.deleteCredential(credOp)
+			case pb.ProjectOperation_DELETE_CREDENTIAL:
+				err := c.deleteCredential(projectOp)
 				if err != nil {
-					logError(err, fmt.Sprintf("Error while deleting credential with key '%s'", credOp.Key))
+					logError(err, fmt.Sprintf("Error while deleting credential with key '%s'", projectOp.Key))
 					result.Status = pb.Response_ERROR
 					result.Error = err.Error()
 				} else {
 					result.Status = pb.Response_SUCCESS
-					result.Info = fmt.Sprintf("Successfully deleted credential with key '%s'", credOp.Key)
+					result.Info = fmt.Sprintf("Successfully deleted credential with key '%s'", projectOp.Key)
 					result.Error = ""
 				}
 			}
@@ -572,12 +556,12 @@ func (c *connection) deleteMember(op *pb.ProjectOperation) error {
 	return m.Delete(dbMap)
 }
 
-func (c *connection) getCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
+func (c *connection) getCredential(op *pb.ProjectOperation) (*pb.Credential, error) {
 	if !c.isCLI {
 		return nil, ErrInvalidArgsForCredentialOp
 	}
 	// Validate important input
-	projectId := int(op.Project)
+	projectId := int(op.ProjectId)
 	key := strings.TrimSpace(op.Key)
 	// Make sure we have all the requirements to perform the operation
 	if projectId == 0 || key == "" {
@@ -651,12 +635,12 @@ func (c *connection) listCredentials(op *pb.ProjectOperation) ([]*pb.Credential,
 	return ret, nil
 }
 
-func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, error) {
+func (c *connection) setCredential(op *pb.ProjectOperation) (*pb.Credential, error) {
 	if !c.isCLI {
 		return nil, ErrInvalidArgsForCredentialOp
 	}
 	// Validate important input
-	projectId := int(op.Project)
+	projectId := int(op.ProjectId)
 	key := strings.TrimSpace(op.Key)
 	value := op.Value
 	// Make sure we have all the requirements to perform the operation
@@ -696,12 +680,12 @@ func (c *connection) setCredential(op *pb.CredentialOperation) (*pb.Credential, 
 	return &cred, nil
 }
 
-func (c *connection) deleteCredential(op *pb.CredentialOperation) error {
+func (c *connection) deleteCredential(op *pb.ProjectOperation) error {
 	if !c.isCLI {
 		return ErrInvalidArgsForCredentialOp
 	}
 	// Validate important input
-	projectId := int(op.Project)
+	projectId := int(op.ProjectId)
 	key := strings.TrimSpace(op.Key)
 	// Make sure we have all the requirements to perform the operation
 	if projectId == 0 || key == "" {
