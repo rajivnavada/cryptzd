@@ -127,6 +127,10 @@ func (m *Message) SetAddressHeader(field, address, name string) {
 
 // FormatAddress formats an address and a name as a valid RFC 5322 address.
 func (m *Message) FormatAddress(address, name string) string {
+	if name == "" {
+		return address
+	}
+
 	enc := m.encodeString(name)
 	if enc == name {
 		m.buf.WriteByte('"')
@@ -257,6 +261,14 @@ func SetHeader(h map[string][]string) FileSetting {
 		for k, v := range h {
 			f.Header[k] = v
 		}
+	}
+}
+
+// Rename is a file setting to set the name of the attachment if the name is
+// different than the filename on disk.
+func Rename(name string) FileSetting {
+	return func(f *file) {
+		f.Name = name
 	}
 }
 

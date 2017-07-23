@@ -13,6 +13,8 @@ import (
 var (
 	host                    = flag.String("host", "127.0.0.1", "HTTP service host")
 	port                    = flag.String("port", "8000", "HTTP port at which the service will run")
+	certFile                = flag.String("cert", "cert.pem", "Path to cert.pem")
+	keyFile                 = flag.String("key", "key.pem", "Path to key.pem")
 	sqliteFilePath          = flag.String("db", "/usr/local/var/db/cryptz/cryptz.db", "Path to sqllite db file.")
 	appEmail                = flag.String("appEmail", "", "Email address to use for sender for this app")
 	appEmailPasswordEnvName = flag.String("appPasswordEnvName", "MAILPASS", "Name of the environment variable that contains the password for this app email sender")
@@ -41,7 +43,7 @@ func main() {
 		Addr:    addr,
 		Handler: router,
 	}
-	if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
+	if err := server.ListenAndServeTLS(*certFile, *keyFile); err != nil {
 		panic(err)
 	}
 }

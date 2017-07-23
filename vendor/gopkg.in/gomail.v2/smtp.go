@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 // A Dialer is a dialer to an SMTP server.
@@ -57,7 +58,7 @@ func NewPlainDialer(host string, port int, username, password string) *Dialer {
 // Dial dials and authenticates to an SMTP server. The returned SendCloser
 // should be closed when done using it.
 func (d *Dialer) Dial() (SendCloser, error) {
-	conn, err := netDial("tcp", addr(d.Host, d.Port))
+	conn, err := netDialTimeout("tcp", addr(d.Host, d.Port), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		}
 	}
 
-	return &smtpSender{c}, nil
+	return &smtpSender{c, d}, nil
 }
 
 func (d *Dialer) tlsConfig() *tls.Config {
@@ -138,10 +139,21 @@ func (d *Dialer) DialAndSend(m ...*Message) error {
 
 type smtpSender struct {
 	smtpClient
+	d *Dialer
 }
 
 func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 	if err := c.Mail(from); err != nil {
+		if err == io.EOF {
+			// This is probably due to a timeout, so reconnect and try again.
+			sc, derr := c.d.Dial()
+			if derr == nil {
+				if s, ok := sc.(*smtpSender); ok {
+					*c = *s
+					return c.Send(from, to, msg)
+				}
+			}
+		}
 		return err
 	}
 
@@ -170,9 +182,9 @@ func (c *smtpSender) Close() error {
 
 // Stubbed out for tests.
 var (
-	netDial       = net.Dial
-	tlsClient     = tls.Client
-	smtpNewClient = func(conn net.Conn, host string) (smtpClient, error) {
+	netDialTimeout = net.DialTimeout
+	tlsClient      = tls.Client
+	smtpNewClient  = func(conn net.Conn, host string) (smtpClient, error) {
 		return smtp.NewClient(conn, host)
 	}
 )
